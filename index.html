@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CleanStream - 광고 없는 플레이어 & 다운로더</title>
+
+  <!-- 모바일 전체 화면 (PWA Standalone) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CleanStream">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#090d16">
+  <meta name="referrer" content="no-referrer">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HLS (.m3u8) 스트리밍 재생 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
+    video {
+      background: #000;
+    }
+  </style>
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen select-none">
+
+  <!-- 상단 헤더 -->
+  <header class="bg-slate-900/95 backdrop-blur border-b border-slate-800 sticky top-0 z-30 px-4 py-3">
+    <div class="max-w-lg mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">🎬</span>
+        <div>
+          <h1 class="font-extrabold text-base text-white leading-tight">CleanStream</h1>
+          <p class="text-[11px] text-slate-400">광고 없는 재생 · 스트림 추출 · 다운로드</p>
+        </div>
+      </div>
+      <button onclick="clearAllHistory()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg font-bold">
+        기록 초기화
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-lg mx-auto p-4 space-y-4">
+
+    <!-- URL 입력 영역 -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5 shadow-lg">
+      <label class="text-xs font-extrabold text-indigo-400 block">🔗 스트리밍 페이지 또는 영상 주소(.m3u8 / .mp4)</label>
+      <div class="flex space-x-2">
+        <input
+          type="url"
+          id="url-input"
+          placeholder="https://... 주소 붙여넣기"
+          class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+        >
+        <button onclick="pasteClipboard()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 rounded-xl text-xs font-bold shrink-0">
+          붙여넣기
+        </button>
+      </div>
+      <div class="flex space-x-2">
+        <button onclick="analyzeUrl()" id="analyze-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white py-2.5 rounded-xl font-extrabold text-xs shadow transition">
+          ⚡ 광고 제거 후 영상 추출 / 재생
+        </button>
+      </div>
+      <label class="flex items-center space-x-2 text-[11px] text-slate-400 cursor-pointer pt-0.5">
+        <input type="checkbox" id="use-proxy-chk" checked class="rounded text-indigo-500 w-3.5 h-3.5">
+        <span>CORS 차단 우회 프록시 자동 사용 (스트림 추출·다운로드 시 권장)</span>
+      </label>
+    </section>
+
+    <!-- 상태 메시지 -->
+    <div id="status-box" class="hidden bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-indigo-300 flex items-center space-x-2">
+      <div id="status-spinner" class="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+      <span id="status-msg">분석 중...</span>
+    </div>
+
+    <!-- 광고 없는 전용 플레이어 영역 -->
+    <section id="player-section" class="hidden bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      <div id="video-wrapper" class="w-full aspect-video bg-black relative">
+        <video id="video-player" class="w-full h-full" controls playsinline></video>
+        <iframe id="yt-iframe" class="hidden w-full h-full border-0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      </div>
+
+      <!-- 플레이어 컨트롤 & 다운로드 바 -->
+      <div class="p-3.5 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div class="overflow-hidden">
+            <span id="current-type-badge" class="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">HLS</span>
+            <p id="current-title" class="text-xs font-bold text-white truncate mt-1">재생 중인 영상</p>
+          </div>
+          <select id="speed-select" onchange="changePlaybackRate(this.value)" class="bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+          </select>
+        </div>
+
+        <!-- 다운로드 버튼 영역 -->
+        <div class="flex space-x-2">
+          <button onclick="downloadCurrentVideo()" id="download-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-2.5 rounded-xl font-extrabold text-xs transition flex items-center justify-center space-x-1.5">
+            <span>📥</span><span id="download-btn-text">동영상 다운로드</span>
+          </button>
+          <button onclick="copyCurrentStreamUrl()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2.5 rounded-xl font-bold text-xs">
+            주소 복사
+          </button>
+        </div>
+
+        <!-- 다운로드 진행률 바 -->
+        <div id="dl-progress-wrap" class="hidden space-y-1">
+          <div class="flex justify-between text-[11px] text-slate-400">
+            <span id="dl-progress-label">스트림 조각 수집 중...</span>
+            <span id="dl-progress-pct" class="font-bold text-emerald-400">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="dl-progress-bar" class="h-full bg-emerald-500 transition-all duration-200" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 페이지에서 추출된 영상 소스 목록 -->
+    <section id="extracted-section" class="hidden space-y-2">
+      <h2 class="text-xs font-extrabold text-slate-300 px-1">🔎 페이지에서 감지된 영상 소스 (광고 제외)</h2>
+      <div id="extracted-list" class="space-y-2"></div>
+    </section>
+
+    <!-- 최근 재생 / 북마크 목록 -->
+    <section class="space-y-2">
+      <h2 class="text-xs font-extrabold text-slate-400 px-1">🕘 최근 재생한 영상</h2>
+      <div id="history-list" class="space-y-2"></div>
+    </section>
+
+  </main>
+
+  <!-- 토스트 -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-lg hidden z-50"></div>
+
+  <script>
+    let hlsInstance = null;
+    let currentMedia = { url: '', type: '', title: '' };
+    let historyItems = JSON.parse(localStorage.getItem('cleanstream_history') || '[]');
+    let isDownloading = false;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2200);
+    }
+
+    function setStatus(msg, loading = true) {
+      const box = document.getElementById('status-box');
+      const spin = document.getElementById('status-spinner');
+      const txt = document.getElementById('status-msg');
+      if (!msg) {
+        box.classList.add('hidden');
+        return;
+      }
+      box.classList.remove('hidden');
+      spin.classList.toggle('hidden', !loading);
+      txt.textContent = msg;
+    }
+
+    async function pasteClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('url-input').value = text.trim();
+        showToast('주소가 붙여넣기 되었습니다.');
+      } catch (e) {
+        showToast('클립보드 접근 권한이 필요합니다. 직접 붙여넣어 주세요.');
+      }
+    }
+
+    // 프록시 경유 Fetch (CORS 우회)
+    function proxiedUrl(url) {
+      const useProxy = document.getElementById('use-proxy-chk').checked;
+      if (!useProxy) return url;
+      return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+    }
+
+    async function fetchTextWithFallback(targetUrl) {
+      const encoded = encodeURIComponent(targetUrl);
+      const candidates = [
+        `https://corsproxy.io/?${encoded}`,
+        `https://api.allorigins.win/raw?url=${encoded}`,
+        `https://api.codetabs.com/v1/proxy?quest=${encoded}`
+      ];
+      for (const u of candidates) {
+        try {
+          const res = await fetch(u);
+          if (res.ok) {
+            const txt = await res.text();
+            if (txt && txt.length > 50) return txt;
+          }
+        } catch (e) {}
+      }
+      throw new Error('페이지를 불러오지 못했습니다 (보안 차단 또는 CORS 제한).');
+    }
+
+    function resolveUrl(base, relative) {
+      try {
+        return new URL(relative, base).href;
+      } catch (e) {
+        return relative;
+      }
+    }
+
+    // 유튜브 ID 추출
+    function extractYouTubeId(url) {
+      const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    // 메인 분석 함수
+    async function analyzeUrl() {
+      const rawUrl = document.getElementById('url-input').value.trim();
+      if (!rawUrl) {
+        showToast('동영상 또는 사이트 주소를 입력해 주세요.');
+        return;
+      }
+
+      document.getElementById('extracted-section').classList.add('hidden');
+      setStatus('영상 주소를 분석하고 있습니다...', true);
+
+      // 1. 유튜브 URL인 경우: 광고 최소화 nocookie 임베드 재생
+      const ytId = extractYouTubeId(rawUrl);
+      if (ytId) {
+        setStatus('', false);
+        playYouTube(ytId, rawUrl);
+        return;
+      }
+
+      // 2. 직접 미디어 URL (.m3u8, .mp4, .webm)인 경우 즉시 재생
+      if (/\.(m3u8|mp4|webm|mov)(\?|$)/i.test(rawUrl)) {
+        const type = /\.m3u8(\?|$)/i.test(rawUrl) ? 'HLS' : 'MP4';
+        setStatus('', false);
+        playMedia(rawUrl, type, rawUrl.split('/').pop().split('?')[0] || '직접 스트림');
+        return;
+      }
+
+      // 3. 일반 스트리밍 웹페이지인 경우 HTML에서 영상 스트림 추출 (광고 스크립트 무시)
+      try {
+        setStatus('웹페이지에서 광고를 제외하고 영상 스트림(.m3u8 / .mp4)을 찾는 중...', true);
+        const html = await fetchTextWithFallback(rawUrl);
+        const streams = extractStreamsFromHtml(html, rawUrl);
+
+        if (streams.length === 0) {
+          setStatus('직접적인 영상 주소를 찾지 못했습니다. 사이트가 동적 스크립트나 DRM으로 보호되어 있을 수 있습니다.', false);
+          return;
+        }
+
+        setStatus(`총 ${streams.length}개의 영상 소스를 찾았습니다.`, false);
+        renderExtractedList(streams);
+        // 첫 번째 유효 스트림 자동 재생
+        playMedia(streams[0].url, streams[0].type, streams[0].label);
+      } catch (err) {
+        setStatus(`추출 실패: ${err.message}`, false);
+      }
+    }
+
+    // HTML 내 숨겨진 .m3u8, .mp4, <video>, <source> 주소 정규식 & DOM 추출
+    function extractStreamsFromHtml(html, pageUrl) {
+      const found = [];
+      const seen = new Set();
+
+      const add = (url, type, label) => {
+        if (!url) return;
+        const clean = resolveUrl(pageUrl, url.replace(/\\\//g, '/').replace(/&amp;/g, '&'));
+        if (seen.has(clean)) return;
+        // 명백한 광고 도메인 필터링
+        if (/doubleclick|googlesyndication|adservice|exoclick|juicyads|popads/i.test(clean)) return;
+        seen.add(clean);
+        found.push({ url: clean, type, label });
+      };
+
+      // 정규식으로 스크립트 내부에 숨어있는 m3u8 / mp4 주소까지 모두 탐색
+      const m3u8Matches = html.match(/https?:\/\/[^"'\\s<>]+\.m3u8(?:\?[^"'\\s<>]*)?/gi) || [];
+      m3u8Matches.forEach((u, i) => add(u, 'HLS', `HLS 스트림 #${i + 1} (.m3u8)`));
+
+      const mp4Matches = html.match(/https?:\/\/[^"'\\s<>]+\.mp4(?:\?[^"'\\s<>]*)?/gi) || [];
+      mp4Matches.forEach((u, i) => add(u, 'MP4', `MP4 영상 #${i + 1} (.mp4)`));
+
+      // DOM <video> / <source> 태그 탐색
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const pageTitle = (doc.querySelector('title')?.textContent || '').trim();
+      doc.querySelectorAll('video[src], source[src]').forEach((el, i) => {
+        const src = el.getAttribute('src');
+        if (src) {
+          const type = /\.m3u8/i.test(src) ? 'HLS' : 'MP4';
+          add(src, type, pageTitle || `감지된 영상 #${i + 1}`);
+        }
+      });
+
+      return found;
+    }
+
+    function renderExtractedList(streams) {
+      const sec = document.getElementById('extracted-section');
+      const list = document.getElementById('extracted-list');
+      sec.classList.remove('hidden');
+
+      list.innerHTML = streams.map(s => `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-2">
+          <div class="overflow-hidden">
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${s.type === 'HLS' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'}">${s.type}</span>
+            <p class="text-xs font-bold text-white truncate mt-1">${s.label}</p>
+            <p class="text-[10px] text-slate-500 truncate">${s.url}</p>
+          </div>
+          <button onclick="playMedia('${s.url.replace(/'/g, "\\'")}', '${s.type}', '${s.label.replace(/'/g, "\\'")}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0">
+            ▶ 재생
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function playYouTube(ytId, origUrl) {
+      const section = document.getElementById('player-section');
+      const video = document.getElementById('video-player');
+      const iframe = document.getElementById('yt-iframe');
+
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      video.pause();
+      video.classList.add('hidden');
+      iframe.classList.remove('hidden');
+      iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0`;
+
+      currentMedia = { url: origUrl, type: 'YOUTUBE', title: `YouTube (${ytId})` };
+      document.getElementById('current-type-badge').textContent = 'YOUTUBE';
+      document.getElementById('current-title').textContent = currentMedia.title;
+      document.getElementById('download-btn-text').textContent = '유튜브는 로컬 yt-dlp 필요';
+      section.classList.remove('hidden');
+      saveHistory(currentMedia);
+    }
+
+    function playMedia(url, type, title) {
+      const section = document.getElementById('player-section');
+      const video = document.getElementById('video-player');
+      const iframe = document.getElementById('yt-iframe');
+
+      iframe.src = '';
+      iframe.classList.add('hidden');
+      video.classList.remove('hidden');
+
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      currentMedia = { url, type, title: title || '스트리밍 영상' };
+      document.getElementById('current-type-badge').textContent = type;
+      document.getElementById('current-title').textContent = currentMedia.title;
+      document.getElementById('download-btn-text').textContent = type === 'HLS' ? 'HLS(.m3u8) 병합 다운로드' : 'MP4 바로 다운로드';
+      section.classList.remove('hidden');
+
+      if (type === 'HLS') {
+        if (Hls.isSupported()) {
+          hlsInstance = new Hls({
+            xhrSetup: (xhr, reqUrl) => {
+              // 필요 시 프록시 없이 직접 시도하고, 실패하면 프록시 폴백 가능
+            }
+          });
+          hlsInstance.loadSource(url);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+          hlsInstance.on(Hls.Events.ERROR, (ev, data) => {
+            if (data.fatal && document.getElementById('use-proxy-chk').checked && !url.includes('corsproxy.io')) {
+              hlsInstance.loadSource(proxiedUrl(url));
+            }
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = url;
+          video.play().catch(() => {});
+        }
+      } else {
+        video.src = url;
+        video.play().catch(() => {});
+      }
+
+      saveHistory(currentMedia);
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function changePlaybackRate(rate) {
+      document.getElementById('video-player').playbackRate = parseFloat(rate);
+    }
+
+    function copyCurrentStreamUrl() {
+      if (!currentMedia.url) return;
+      navigator.clipboard.writeText(currentMedia.url).then(() => showToast('영상 스트림 주소가 복사되었습니다!'));
+    }
+
+    // 동영상 다운로드 (MP4 직접 저장 / HLS .m3u8 세그먼트 병합 저장)
+    async function downloadCurrentVideo() {
+      if (!currentMedia.url || isDownloading) return;
+
+      if (currentMedia.type === 'YOUTUBE') {
+        showToast('유튜브 파일 저장은 PC/Termux의 yt-dlp 백엔드 연동이 필요합니다.');
+        return;
+      }
+
+      // MP4 직접 다운로드
+      if (currentMedia.type !== 'HLS') {
+        const a = document.createElement('a');
+        a.href = currentMedia.url;
+        a.download = `${currentMedia.title.replace(/[^\w가-힣.-]/g, '_')}.mp4`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('다운로드를 시작했습니다.');
+        return;
+      }
+
+      // HLS (.m3u8) 세그먼트 병합 다운로드
+      isDownloading = true;
+      const progWrap = document.getElementById('dl-progress-wrap');
+      const progBar = document.getElementById('dl-progress-bar');
+      const progPct = document.getElementById('dl-progress-pct');
+      const progLabel = document.getElementById('dl-progress-label');
+      progWrap.classList.remove('hidden');
+
+      try {
+        progLabel.textContent = '재생목록(.m3u8) 분석 중...';
+        let m3u8Url = currentMedia.url;
+        let m3u8Text = await fetch(proxiedUrl(m3u8Url)).then(r => r.text());
+
+        // 마스터 플레이리스트인 경우 가장 높은 화질의 하위 m3u8 선택
+        if (m3u8Text.includes('#EXT-X-STREAM-INF')) {
+          const lines = m3u8Text.split(/\r?\n/);
+          let bestUri = '';
+          let maxBw = -1;
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith('#EXT-X-STREAM-INF')) {
+              const bwMatch = lines[i].match(/BANDWIDTH=(\d+)/);
+              const bw = bwMatch ? parseInt(bwMatch[1], 10) : 0;
+              const nextLine = (lines[i + 1] || '').trim();
+              if (nextLine && !nextLine.startsWith('#') && bw >= maxBw) {
+                maxBw = bw;
+                bestUri = nextLine;
+              }
+            }
+          }
+          if (bestUri) {
+            m3u8Url = resolveUrl(m3u8Url, bestUri);
+            m3u8Text = await fetch(proxiedUrl(m3u8Url)).then(r => r.text());
+          }
+        }
+
+        const segUrls = m3u8Text
+          .split(/\r?\n/)
+          .map(l => l.trim())
+          .filter(l => l && !l.startsWith('#'))
+          .map(l => resolveUrl(m3u8Url, l));
+
+        if (segUrls.length === 0) throw new Error('다운로드할 영상 조각(.ts)이 없습니다.');
+
+        const chunks = new Array(segUrls.length);
+        let done = 0;
+        const concurrency = 4;
+
+        progLabel.textContent = `영상 조각 다운로드 중 (0 / ${segUrls.length})`;
+
+        for (let i = 0; i < segUrls.length; i += concurrency) {
+          const batch = segUrls.slice(i, i + concurrency);
+          await Promise.all(batch.map(async (segUrl, idx) => {
+            const res = await fetch(proxiedUrl(segUrl));
+            if (!res.ok) throw new Error(`조각 다운로드 실패 (${res.status})`);
+            chunks[i + idx] = await res.arrayBuffer();
+            done++;
+            const pct = Math.round((done / segUrls.length) * 100);
+            progBar.style.width = `${pct}%`;
+            progPct.textContent = `${pct}%`;
+            progLabel.textContent = `영상 조각 다운로드 중 (${done} / ${segUrls.length})`;
+          }));
+        }
+
+        progLabel.textContent = '파일 병합 및 저장 중...';
+        const blob = new Blob(chunks, { type: 'video/mp2t' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `video_${Date.now()}.ts`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+
+        showToast('다운로드가 완료되었습니다! (.ts 파일은 기본 플레이어·VLC에서 재생됩니다)');
+      } catch (err) {
+        showToast(`다운로드 오류: ${err.message}`);
+      } finally {
+        isDownloading = false;
+        setTimeout(() => progWrap.classList.add('hidden'), 3000);
+      }
+    }
+
+    function saveHistory(item) {
+      historyItems = [item, ...historyItems.filter(h => h.url !== item.url)].slice(0, 15);
+      localStorage.setItem('cleanstream_history', JSON.stringify(historyItems));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const box = document.getElementById('history-list');
+      if (historyItems.length === 0) {
+        box.innerHTML = `<div class="bg-slate-900/50 border border-slate-800/80 rounded-xl p-5 text-center text-xs text-slate-500">아직 재생한 영상이 없습니다.</div>`;
+        return;
+      }
+      box.innerHTML = historyItems.map(h => `
+        <div onclick="document.getElementById('url-input').value='${h.url.replace(/'/g, "\\'")}'; analyzeUrl();" class="bg-slate-900 hover:bg-slate-800/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between cursor-pointer">
+          <div class="overflow-hidden pr-2">
+            <span class="text-[10px] font-bold text-indigo-400">${h.type}</span>
+            <p class="text-xs font-bold text-slate-200 truncate">${h.title}</p>
+            <p class="text-[10px] text-slate-500 truncate">${h.url}</p>
+          </div>
+          <span class="text-slate-400 text-sm">▶</span>
+        </div>
+      `).join('');
+    }
+
+    function clearAllHistory() {
+      historyItems = [];
+      localStorage.removeItem('cleanstream_history');
+      renderHistory();
+      showToast('재생 기록을 초기화했습니다.');
+    }
+
+    renderHistory();
+  </script>
+</body>
+</html>
