@@ -17,8 +17,10 @@
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Pretendard", Roboto, sans-serif;
       padding-top: env(safe-area-inset-top);
-      padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(5.2rem + env(safe-area-inset-bottom));
     }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen select-none">
@@ -26,7 +28,7 @@
   <!-- 상단 헤더 -->
   <header class="bg-zinc-900/95 backdrop-blur border-b border-zinc-800 sticky top-0 z-30 px-4 py-3">
     <div class="max-w-lg mx-auto flex items-center justify-between">
-      <div class="flex items-center space-x-2">
+      <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
       </div>
@@ -36,7 +38,7 @@
     </div>
   </header>
 
-  <main class="max-w-lg mx-auto pt-3 space-y-4">
+  <main class="max-w-lg mx-auto pt-3 space-y-3">
 
     <!-- Worker 미설정 안내 배너 -->
     <div id="setup-banner" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 text-xs text-amber-200 space-y-2">
@@ -45,28 +47,18 @@
       <button onclick="openSettings()" class="bg-amber-500 text-black font-extrabold px-3 py-2 rounded-xl">지금 주소 입력하기</button>
     </div>
 
-    <!-- 검색 & URL 직접 입력 -->
-    <form onsubmit="handleSearch(event)" class="flex space-x-2 px-3">
-      <input
-        type="text"
-        id="search-input"
-        placeholder="검색어 또는 영상 URL 붙여넣기..."
-        class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-amber-500 outline-none"
-      >
-      <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-black font-extrabold px-4 rounded-xl text-xs shrink-0">
-        검색
-      </button>
-    </form>
-
-    <!-- 광고 없는 전용 플레이어 (가로 꽉 참) -->
+    <!-- 광고 없는 전용 플레이어 (모든 탭 공통 상단 표시) -->
     <section id="player-box" class="hidden bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden shadow-2xl">
       <div class="w-full aspect-video bg-black relative">
         <video id="video-el" class="w-full h-full" controls playsinline></video>
       </div>
       <div class="p-4 space-y-3">
         <div class="flex items-start justify-between gap-2">
-          <h2 id="player-title" class="text-[15px] font-bold text-white leading-snug line-clamp-2">영상 제목</h2>
-          <button onclick="closePlayer()" class="text-zinc-400 hover:text-white text-lg px-1.5 shrink-0">✕</button>
+          <h2 id="player-title" class="text-[15px] font-bold text-white leading-snug line-clamp-2 flex-1">영상 제목</h2>
+          <div class="flex items-center space-x-1 shrink-0">
+            <button onclick="toggleCurrentFavorite()" id="player-fav-btn" class="text-lg px-2 py-1 rounded-lg bg-zinc-800 active:scale-95">🤍</button>
+            <button onclick="closePlayer()" class="text-zinc-400 hover:text-white text-lg px-2 py-1">✕</button>
+          </div>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -96,24 +88,50 @@
       </div>
     </section>
 
-    <!-- 로딩 표시 -->
-    <div id="loading-el" class="hidden py-12 text-center space-y-2">
-      <div class="inline-block w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-      <p id="loading-msg" class="text-xs text-zinc-400">해외 중계 서버에서 불러오는 중...</p>
-    </div>
+    <!-- ==================== 탭 1: 탐색 (검색 · 정렬 · 장르) ==================== -->
+    <section id="view-explore" class="space-y-3">
 
-    <!-- 영상 목록 피드 (모바일 1열 대형 카드) -->
-    <section class="space-y-3">
-      <div class="flex items-center justify-between px-3">
-        <h2 id="list-heading" class="text-sm font-extrabold text-amber-400">🔥 인기 동영상</h2>
-        <div class="flex items-center space-x-1.5">
-          <button onclick="changePage(-1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">◀ 이전</button>
-          <span id="page-num" class="text-xs font-bold text-zinc-400 px-1.5">1P</span>
-          <button onclick="changePage(1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">다음 ▶</button>
+      <!-- 검색 & URL 직접 입력 -->
+      <form onsubmit="handleSearch(event)" class="flex space-x-2 px-3">
+        <input
+          type="text"
+          id="search-input"
+          placeholder="검색어 또는 영상 URL 붙여넣기..."
+          class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-amber-500 outline-none"
+        >
+        <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-black font-extrabold px-4 rounded-xl text-xs shrink-0">
+          검색
+        </button>
+      </form>
+
+      <!-- 정렬 탭 (인기순 / 최신순 / 최고평점 / 급상승) -->
+      <div class="grid grid-cols-4 gap-1.5 px-3">
+        <button onclick="setSort('mv')" data-sort="mv" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-amber-500 text-black">🔥 인기순</button>
+        <button onclick="setSort('cm')" data-sort="cm" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🆕 최신순</button>
+        <button onclick="setSort('tr')" data-sort="tr" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⭐ 최고평점</button>
+        <button onclick="setSort('ht')" data-sort="ht" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⚡ 급상승</button>
+      </div>
+
+      <!-- 장르별 분류 가로 스크롤 바 -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto px-3 pb-1 scrollbar-none" id="genre-bar"></div>
+
+      <!-- 로딩 표시 -->
+      <div id="loading-el" class="hidden py-12 text-center space-y-2">
+        <div class="inline-block w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p id="loading-msg" class="text-xs text-zinc-400">해외 중계 서버에서 불러오는 중...</p>
+      </div>
+
+      <!-- 현재 목록 헤더 & 페이지 이동 -->
+      <div class="flex items-center justify-between px-3 pt-1">
+        <h2 id="list-heading" class="text-sm font-extrabold text-amber-400 truncate pr-2">🔥 인기 동영상</h2>
+        <div class="flex items-center space-x-1.5 shrink-0">
+          <button onclick="changePage(-1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">◀</button>
+          <span id="page-num" class="text-xs font-bold text-zinc-400 px-1">1P</span>
+          <button onclick="changePage(1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">▶</button>
         </div>
       </div>
 
-      <!-- 1열 세로 배치 컨테이너 -->
+      <!-- 1열 대형 미리보기 피드 -->
       <div id="video-grid" class="flex flex-col space-y-5"></div>
 
       <!-- 하단 페이지 이동 바 -->
@@ -124,7 +142,55 @@
       </div>
     </section>
 
+    <!-- ==================== 탭 2: 즐겨찾기 (찜한 영상) ==================== -->
+    <section id="view-favorites" class="hidden space-y-3">
+      <div class="flex items-center justify-between px-3">
+        <h2 class="text-sm font-extrabold text-rose-400">❤️ 찜한 영상 보관함</h2>
+        <button onclick="clearFavorites()" class="text-xs text-zinc-400 hover:text-rose-400 font-bold">전체 삭제</button>
+      </div>
+      <div id="favorites-grid" class="flex flex-col space-y-5"></div>
+    </section>
+
+    <!-- ==================== 탭 3: 최근 본 영상 ==================== -->
+    <section id="view-history" class="hidden space-y-3">
+      <div class="flex items-center justify-between px-3">
+        <h2 class="text-sm font-extrabold text-sky-400">🕘 최근 본 영상</h2>
+        <button onclick="clearHistory()" class="text-xs text-zinc-400 hover:text-rose-400 font-bold">기록 비우기</button>
+      </div>
+      <div id="history-grid" class="flex flex-col space-y-5"></div>
+    </section>
+
   </main>
+
+  <!-- 하단 고정 네비게이션 바 -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-30" style="padding-bottom: env(safe-area-inset-bottom);">
+    <div class="max-w-lg mx-auto grid grid-cols-3 py-2">
+      <button onclick="switchTab('explore')" id="nav-explore" class="flex flex-col items-center text-amber-400 relative">
+        <span class="text-lg">🎬</span>
+        <span class="text-[11px] font-extrabold mt-0.5">탐색</span>
+      </button>
+      <button onclick="switchTab('favorites')" id="nav-favorites" class="flex flex-col items-center text-zinc-500 relative">
+        <span class="text-lg">❤️</span>
+        <span class="text-[11px] font-extrabold mt-0.5">찜한 영상</span>
+        <span id="fav-badge" class="hidden absolute top-0 right-8 bg-rose-600 text-white text-[9px] font-extrabold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">0</span>
+      </button>
+      <button onclick="switchTab('history')" id="nav-history" class="flex flex-col items-center text-zinc-500 relative">
+        <span class="text-lg">🕘</span>
+        <span class="text-[11px] font-extrabold mt-0.5">최근 기록</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 전체 장르 선택 모달 -->
+  <div id="genre-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+      <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
+        <h3 class="font-extrabold text-sm text-white">📂 전체 장르 분류</h3>
+        <button onclick="closeGenreModal()" class="text-zinc-400 text-lg px-1">✕</button>
+      </div>
+      <div id="all-genres-box" class="p-4 overflow-y-auto grid grid-cols-2 gap-2"></div>
+    </div>
+  </div>
 
   <!-- Worker URL 설정 모달 -->
   <div id="settings-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
@@ -141,26 +207,67 @@
     </div>
   </div>
 
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-50"></div>
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-50"></div>
 
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').catch(() => {});
     }
 
+    const PRESET_GENRES = [
+      { label: '전체', value: '' },
+      { label: '🇰🇷 한국', value: 'korean' },
+      { label: '🇯🇵 일본', value: 'japanese' },
+      { label: '🌏 아시안', value: 'asian' },
+      { label: '📹 아마추어', value: 'amateur' },
+      { label: '👁️ POV', value: 'pov' },
+      { label: '💆 마사지', value: 'massage' },
+      { label: '🎭 코스프레', value: 'cosplay' },
+      { label: '✨ 4K/HD', value: '4k' },
+      { label: '🌳 야외', value: 'public' }
+    ];
+
+    const SORT_LABELS = {
+      mv: '🔥 인기순',
+      cm: '🆕 최신순',
+      tr: '⭐ 최고평점',
+      ht: '⚡ 급상승'
+    };
+
     let workerUrl = localStorage.getItem('cleanhub_worker_url') || '';
+    let favorites = JSON.parse(localStorage.getItem('cleanhub_favorites') || '[]');
+    let watchHistory = JSON.parse(localStorage.getItem('cleanhub_history') || '[]');
+
+    let currentTab = 'explore';
     let currentQuery = '';
+    let currentSort = 'mv';
+    let currentGenre = { label: '전체', value: '' };
     let currentPage = 1;
+    let lastItemsMap = {};
+
     let hls = null;
     let currentStreams = [];
-    let currentVideoTitle = '';
+    let currentVideoMeta = null;
     let isDownloading = false;
+    let cachedAllCategories = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.classList.remove('hidden');
-      setTimeout(() => t.classList.add('hidden'), 2400);
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    function proxyUrl(target, extra = '') {
+      if (!target) return '';
+      return `${workerUrl}/api/proxy?url=${encodeURIComponent(target)}${extra}`;
     }
 
     function openSettings() {
@@ -185,10 +292,158 @@
       loadList();
     }
 
-    function proxyUrl(target, extra = '') {
-      return `${workerUrl}/api/proxy?url=${encodeURIComponent(target)}${extra}`;
+    function resetHome() {
+      currentQuery = '';
+      currentGenre = { label: '전체', value: '' };
+      currentSort = 'mv';
+      currentPage = 1;
+      document.getElementById('search-input').value = '';
+      switchTab('explore');
+      renderSortButtons();
+      renderGenreBar();
+      loadList();
     }
 
+    // ==================== 탭 전환 ====================
+    function switchTab(tab) {
+      currentTab = tab;
+      ['explore', 'favorites', 'history'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`nav-${t}`).className =
+          t === tab
+            ? 'flex flex-col items-center text-amber-400 relative'
+            : 'flex flex-col items-center text-zinc-500 relative';
+      });
+      if (tab === 'favorites') renderFavorites();
+      if (tab === 'history') renderHistory();
+    }
+
+    function updateFavBadge() {
+      const badge = document.getElementById('fav-badge');
+      if (favorites.length > 0) {
+        badge.textContent = favorites.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    // ==================== 정렬 & 장르 ====================
+    function renderSortButtons() {
+      document.querySelectorAll('.sort-btn').forEach(btn => {
+        const active = btn.dataset.sort === currentSort;
+        btn.className = active
+          ? 'sort-btn py-2 rounded-xl text-xs font-extrabold bg-amber-500 text-black shadow'
+          : 'sort-btn py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800';
+      });
+    }
+
+    function setSort(sortCode) {
+      currentSort = sortCode;
+      currentPage = 1;
+      renderSortButtons();
+      loadList();
+    }
+
+    function renderGenreBar() {
+      const bar = document.getElementById('genre-bar');
+      const chips = PRESET_GENRES.map(g => {
+        const active = currentGenre.value === g.value && !currentQuery;
+        return `
+          <button onclick="selectGenre('${g.label.replace(/'/g, "\\'")}', '${g.value.replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition ${active ? 'bg-white text-black' : 'bg-zinc-900 text-zinc-300 border border-zinc-800'}">
+            ${g.label}
+          </button>`;
+      }).join('');
+
+      const customActive = currentGenre.value && !PRESET_GENRES.some(p => p.value === currentGenre.value);
+      const customChip = customActive
+        ? `<button class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 bg-white text-black">${escapeHtml(currentGenre.label)}</button>`
+        : '';
+
+      bar.innerHTML = chips + customChip + `
+        <button onclick="openAllGenresModal()" class="px-3 py-1.5 rounded-full text-xs font-extrabold shrink-0 bg-amber-500/15 border border-amber-500/40 text-amber-300">
+          📂 전체 장르 +
+        </button>`;
+    }
+
+    function selectGenre(label, value) {
+      currentQuery = '';
+      document.getElementById('search-input').value = '';
+      currentGenre = { label, value };
+      currentPage = 1;
+      renderGenreBar();
+      loadList();
+    }
+
+    async function openAllGenresModal() {
+      if (!workerUrl) { openSettings(); return; }
+      const modal = document.getElementById('genre-modal');
+      const box = document.getElementById('all-genres-box');
+      modal.classList.remove('hidden');
+
+      if (cachedAllCategories) {
+        renderAllCategories(cachedAllCategories);
+        return;
+      }
+
+      box.innerHTML = `<div class="col-span-2 py-8 text-center text-xs text-zinc-400">사이트의 전체 장르 목록을 불러오는 중...</div>`;
+      try {
+        const res = await fetch(`${workerUrl}/api/categories`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        cachedAllCategories = data.categories || [];
+        renderAllCategories(cachedAllCategories);
+      } catch (e) {
+        box.innerHTML = `<div class="col-span-2 py-6 text-center text-xs text-rose-400">불러오기 실패: ${e.message}</div>`;
+      }
+    }
+
+    function renderAllCategories(list) {
+      const box = document.getElementById('all-genres-box');
+      if (!list || list.length === 0) {
+        box.innerHTML = `<div class="col-span-2 py-6 text-center text-xs text-zinc-500">장르 목록이 비어 있습니다.</div>`;
+        return;
+      }
+      box.innerHTML = list.map(c => `
+        <button onclick="selectGenre('${c.name.replace(/'/g, "\\'")}', '${c.path.replace(/'/g, "\\'")}'); closeGenreModal();" class="bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-200 truncate">
+          ${escapeHtml(c.name)}
+        </button>
+      `).join('');
+    }
+
+    function closeGenreModal() {
+      document.getElementById('genre-modal').classList.add('hidden');
+    }
+
+    // ==================== 카드 렌더링 공통 함수 ====================
+    function isFav(vkey) {
+      return favorites.some(f => f.vkey === vkey);
+    }
+
+    function buildVideoCardHtml(item) {
+      const faved = isFav(item.vkey);
+      return `
+        <article class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden">
+          <div onclick="openVideo('${item.vkey}')" class="relative w-full aspect-video bg-black cursor-pointer active:opacity-90">
+            <img src="${proxyUrl(item.thumb)}" loading="lazy" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none"></div>
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
+                <span class="text-white text-lg ml-0.5">▶</span>
+              </div>
+            </div>
+            ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md">${escapeHtml(item.duration)}</span>` : ''}
+          </div>
+          <div class="px-4 py-3 flex items-start justify-between gap-3">
+            <h3 onclick="openVideo('${item.vkey}')" class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2 flex-1 cursor-pointer">${escapeHtml(item.title)}</h3>
+            <button onclick="toggleFavoriteByVkey('${item.vkey}')" class="shrink-0 w-9 h-9 rounded-xl bg-zinc-800/90 flex items-center justify-center text-base active:scale-90 transition" title="찜하기">
+              ${faved ? '❤️' : '🤍'}
+            </button>
+          </div>
+        </article>`;
+    }
+
+    // ==================== 목록 불러오기 ====================
     async function loadList() {
       if (!workerUrl) {
         document.getElementById('setup-banner').classList.remove('hidden');
@@ -202,33 +457,32 @@
       document.getElementById('loading-msg').textContent = '목록을 불러오는 중...';
       document.getElementById('page-num').textContent = `${currentPage}P`;
       document.getElementById('page-num-bottom').textContent = `${currentPage}P`;
-      document.getElementById('list-heading').textContent = currentQuery ? `🔎 "${currentQuery}" 검색 결과` : '🔥 인기 동영상';
+
+      const sortText = SORT_LABELS[currentSort] || '인기순';
+      if (currentQuery) {
+        document.getElementById('list-heading').textContent = `🔎 "${currentQuery}" (${sortText})`;
+      } else if (currentGenre.value) {
+        document.getElementById('list-heading').textContent = `${currentGenre.label} · ${sortText}`;
+      } else {
+        document.getElementById('list-heading').textContent = `전체 동영상 · ${sortText}`;
+      }
 
       try {
-        const res = await fetch(`${workerUrl}/api/list?q=${encodeURIComponent(currentQuery)}&page=${currentPage}`);
+        const params = new URLSearchParams({
+          q: currentQuery,
+          sort: currentSort,
+          cat: currentGenre.value,
+          page: String(currentPage)
+        });
+        const res = await fetch(`${workerUrl}/api/list?${params.toString()}`);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
         if (!data.items || data.items.length === 0) {
           grid.innerHTML = `<div class="text-center text-xs text-zinc-500 py-10">표시할 영상이 없습니다.</div>`;
         } else {
-          grid.innerHTML = data.items.map(item => `
-            <article onclick="openVideo('${item.vkey}')" class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden cursor-pointer active:opacity-90 transition">
-              <div class="relative w-full aspect-video bg-black">
-                <img src="${proxyUrl(item.thumb)}" loading="lazy" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none"></div>
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div class="w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
-                    <span class="text-white text-lg ml-0.5">▶</span>
-                  </div>
-                </div>
-                ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md tracking-wide">${item.duration}</span>` : ''}
-              </div>
-              <div class="px-4 py-3">
-                <h3 class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2">${item.title}</h3>
-              </div>
-            </article>
-          `).join('');
+          data.items.forEach(it => { lastItemsMap[it.vkey] = it; });
+          grid.innerHTML = data.items.map(buildVideoCardHtml).join('');
           bottomPager.classList.remove('hidden');
         }
       } catch (e) {
@@ -248,6 +502,7 @@
       }
       currentQuery = val;
       currentPage = 1;
+      renderGenreBar();
       loadList();
     }
 
@@ -257,11 +512,106 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // ==================== 즐겨찾기(찜) & 최근 기록 ====================
+    function toggleFavoriteByVkey(vkey) {
+      const idx = favorites.findIndex(f => f.vkey === vkey);
+      if (idx >= 0) {
+        favorites.splice(idx, 1);
+        showToast('찜 목록에서 제거했습니다.');
+      } else {
+        const meta = lastItemsMap[vkey]
+          || watchHistory.find(h => h.vkey === vkey)
+          || (currentVideoMeta && currentVideoMeta.vkey === vkey ? currentVideoMeta : null);
+        if (!meta) return;
+        favorites.unshift({
+          vkey: meta.vkey,
+          title: meta.title,
+          thumb: meta.thumb,
+          duration: meta.duration || ''
+        });
+        showToast('❤️ 찜한 영상에 저장했습니다!');
+      }
+      localStorage.setItem('cleanhub_favorites', JSON.stringify(favorites));
+      updateFavBadge();
+      updatePlayerFavButton();
+      if (currentTab === 'favorites') renderFavorites();
+      else if (currentTab === 'history') renderHistory();
+      else {
+        // 탐색 목록의 하트 상태 즉시 갱신
+        const grid = document.getElementById('video-grid');
+        if (grid.children.length > 0) {
+          const items = Object.values(lastItemsMap);
+          // 현재 렌더링된 카드만 가볍게 갱신하기 위해 버튼 아이콘 업데이트
+          document.querySelectorAll(`button[onclick="toggleFavoriteByVkey('${vkey}')"]`).forEach(btn => {
+            btn.textContent = isFav(vkey) ? '❤️' : '🤍';
+          });
+        }
+      }
+    }
+
+    function toggleCurrentFavorite() {
+      if (!currentVideoMeta) return;
+      toggleFavoriteByVkey(currentVideoMeta.vkey);
+    }
+
+    function updatePlayerFavButton() {
+      const btn = document.getElementById('player-fav-btn');
+      if (!currentVideoMeta) return;
+      btn.textContent = isFav(currentVideoMeta.vkey) ? '❤️' : '🤍';
+    }
+
+    function renderFavorites() {
+      const grid = document.getElementById('favorites-grid');
+      if (favorites.length === 0) {
+        grid.innerHTML = `<div class="mx-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-10 text-center text-xs text-zinc-500">아직 찜한 영상이 없습니다.<br>마음에 드는 영상의 🤍 버튼을 눌러 저장해 보세요.</div>`;
+        return;
+      }
+      grid.innerHTML = favorites.map(buildVideoCardHtml).join('');
+    }
+
+    function clearFavorites() {
+      if (favorites.length === 0) return;
+      if (!confirm('찜한 영상을 모두 삭제할까요?')) return;
+      favorites = [];
+      localStorage.setItem('cleanhub_favorites', '[]');
+      updateFavBadge();
+      updatePlayerFavButton();
+      renderFavorites();
+    }
+
+    function addToHistory(meta) {
+      if (!meta || !meta.vkey) return;
+      watchHistory = [meta, ...watchHistory.filter(h => h.vkey !== meta.vkey)].slice(0, 30);
+      localStorage.setItem('cleanhub_history', JSON.stringify(watchHistory));
+    }
+
+    function renderHistory() {
+      const grid = document.getElementById('history-grid');
+      if (watchHistory.length === 0) {
+        grid.innerHTML = `<div class="mx-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-10 text-center text-xs text-zinc-500">최근에 재생한 영상이 없습니다.</div>`;
+        return;
+      }
+      grid.innerHTML = watchHistory.map(buildVideoCardHtml).join('');
+    }
+
+    function clearHistory() {
+      if (watchHistory.length === 0) return;
+      if (!confirm('최근 본 영상 기록을 모두 지울까요?')) return;
+      watchHistory = [];
+      localStorage.setItem('cleanhub_history', '[]');
+      renderHistory();
+    }
+
+    // ==================== 영상 추출 · 재생 · 다운로드 ====================
     async function openVideo(vkey) {
       if (!workerUrl) { openSettings(); return; }
       const loading = document.getElementById('loading-el');
-      loading.classList.remove('hidden');
-      document.getElementById('loading-msg').textContent = '광고 제거 및 고화질 스트림 추출 중...';
+      if (currentTab === 'explore') {
+        loading.classList.remove('hidden');
+        document.getElementById('loading-msg').textContent = '광고 제거 및 고화질 스트림 추출 중...';
+      } else {
+        showToast('영상 스트림을 불러오는 중...');
+      }
 
       try {
         const res = await fetch(`${workerUrl}/api/extract?vkey=${encodeURIComponent(vkey)}`);
@@ -270,9 +620,18 @@
         if (!data.streams || data.streams.length === 0) throw new Error('재생 가능한 스트림이 없습니다.');
 
         currentStreams = data.streams;
-        currentVideoTitle = data.title;
+        const known = lastItemsMap[vkey] || favorites.find(f => f.vkey === vkey) || watchHistory.find(h => h.vkey === vkey);
+        currentVideoMeta = {
+          vkey,
+          title: data.title,
+          thumb: data.thumb || (known ? known.thumb : ''),
+          duration: known ? known.duration : ''
+        };
+        addToHistory(currentVideoMeta);
 
         document.getElementById('player-title').textContent = data.title;
+        updatePlayerFavButton();
+
         const sel = document.getElementById('quality-select');
         sel.innerHTML = currentStreams.map((s, idx) =>
           `<option value="${idx}">${s.quality}p (${s.format.toUpperCase()})</option>`
@@ -280,7 +639,7 @@
 
         document.getElementById('player-box').classList.remove('hidden');
         switchQuality(0);
-        document.getElementById('player-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (e) {
         showToast(`추출 실패: ${e.message}`);
       } finally {
@@ -328,16 +687,17 @@
     }
 
     async function downloadCurrent() {
-      if (isDownloading || currentStreams.length === 0) return;
+      if (isDownloading || currentStreams.length === 0 || !currentVideoMeta) return;
       const idx = parseInt(document.getElementById('quality-select').value, 10);
       const stream = currentStreams[idx];
       if (!stream) return;
+      const safeTitle = currentVideoMeta.title.slice(0, 40);
 
       if (stream.format === 'mp4' && !stream.url.includes('.m3u8')) {
-        const dlUrl = proxyUrl(stream.url, `&dl=1&name=${encodeURIComponent(currentVideoTitle.slice(0, 40))}`);
+        const dlUrl = proxyUrl(stream.url, `&dl=1&name=${encodeURIComponent(safeTitle)}`);
         const a = document.createElement('a');
         a.href = dlUrl;
-        a.download = `${currentVideoTitle.slice(0, 40)}.mp4`;
+        a.download = `${safeTitle}.mp4`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -386,7 +746,7 @@
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = `${currentVideoTitle.slice(0, 40).replace(/[^\w가-힣.-]/g, '_')}.ts`;
+        a.download = `${safeTitle.replace(/[^\w가-힣.-]/g, '_')}.ts`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -400,6 +760,10 @@
       }
     }
 
+    // 초기화
+    renderSortButtons();
+    renderGenreBar();
+    updateFavBadge();
     if (workerUrl) loadList();
     else document.getElementById('setup-banner').classList.remove('hidden');
   </script>
