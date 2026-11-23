@@ -26,15 +26,20 @@
 <body class="bg-zinc-950 text-zinc-100 min-h-screen select-none">
 
   <!-- 상단 헤더 -->
-  <header class="bg-zinc-900/95 backdrop-blur border-b border-zinc-800 sticky top-0 z-30 px-4 py-3">
-    <div class="max-w-lg mx-auto flex items-center justify-between">
-      <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer">
+  <header class="bg-zinc-900/95 backdrop-blur border-b border-zinc-800 sticky top-0 z-30 px-3.5 py-3">
+    <div class="max-w-lg mx-auto flex items-center justify-between gap-2">
+      <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
       </div>
-      <button onclick="openSettings()" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 rounded-lg font-bold">
-        ⚙️ 서버 설정
-      </button>
+      <div class="flex items-center space-x-1.5">
+        <button onclick="toggleAutoPreview()" id="auto-preview-btn" class="text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition">
+          ▶ 자동미리보기 ON
+        </button>
+        <button onclick="openSettings()" class="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-2.5 py-1.5 rounded-lg font-bold">
+          ⚙️
+        </button>
+      </div>
     </div>
   </header>
 
@@ -43,7 +48,7 @@
     <!-- Worker 미설정 안내 배너 -->
     <div id="setup-banner" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 text-xs text-amber-200 space-y-2">
       <p class="font-extrabold text-sm">⚙️ 먼저 Cloudflare Worker 주소를 연결해 주세요</p>
-      <p class="text-amber-200/80 leading-relaxed">우측 상단 <b>[⚙️ 서버 설정]</b>을 눌러 배포한 <code>https://...workers.dev</code> 주소를 입력하면 우회 앱 없이 바로 작동합니다.</p>
+      <p class="text-amber-200/80 leading-relaxed">우측 상단 <b>[⚙️]</b>을 눌러 배포한 <code>https://...workers.dev</code> 주소를 입력하면 우회 앱 없이 바로 작동합니다.</p>
       <button onclick="openSettings()" class="bg-amber-500 text-black font-extrabold px-3 py-2 rounded-xl">지금 주소 입력하기</button>
     </div>
 
@@ -161,12 +166,12 @@
         </div>
       </div>
 
-      <!-- 하단 컨트롤 & 상세 정보 (스크롤 가능) -->
+      <!-- 하단 컨트롤 & 상세 정보 -->
       <div class="p-4 space-y-3 overflow-y-auto">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <h2 id="player-title" class="text-[15px] font-extrabold text-white leading-snug">영상 불러오는 중...</h2>
-            <button id="player-channel-btn" onclick="searchFromPlayerChannel()" class="hidden mt-1.5 inline-flex items-center space-x-1 text-xs font-bold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-full">
+            <button id="player-channel-btn" onclick="searchFromPlayerChannel()" class="hidden mt-1.5 inline-flex items-center space-x-1 text-xs font-bold text-amber-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-full">
               <span>📺</span>
               <span id="player-channel-name"></span>
             </button>
@@ -259,6 +264,7 @@
     let workerUrl = localStorage.getItem('cleanhub_worker_url') || '';
     let favorites = JSON.parse(localStorage.getItem('cleanhub_favorites') || '[]');
     let watchHistory = JSON.parse(localStorage.getItem('cleanhub_history') || '[]');
+    let autoPreviewEnabled = localStorage.getItem('cleanhub_autopreview') !== 'false';
 
     let currentTab = 'explore';
     let currentQuery = '';
@@ -273,6 +279,8 @@
     let isDownloading = false;
     let cachedAllCategories = null;
     let activePreviewContainer = null;
+    let scrollObserver = null;
+    let previewDelayTimer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -291,6 +299,38 @@
     function proxyUrl(target, extra = '') {
       if (!target) return '';
       return `${workerUrl}/api/proxy?url=${encodeURIComponent(target)}${extra}`;
+    }
+
+    // 고화질 썸네일 로드 실패 시 기본 썸네일로 자동 폴백
+    window.fallbackThumb = function(imgEl, encodedFallback) {
+      if (imgEl.dataset.fbDone) return;
+      imgEl.dataset.fbDone = '1';
+      const fb = decodeURIComponent(encodedFallback || '');
+      if (fb) imgEl.src = proxyUrl(fb);
+    };
+
+    function updateAutoPreviewBtn() {
+      const btn = document.getElementById('auto-preview-btn');
+      if (autoPreviewEnabled) {
+        btn.textContent = '▶ 자동미리보기 ON';
+        btn.className = 'text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition';
+      } else {
+        btn.textContent = '⏸ 자동미리보기 OFF';
+        btn.className = 'text-[11px] bg-zinc-800 border border-zinc-700 text-zinc-400 px-2.5 py-1.5 rounded-lg font-bold active:scale-95 transition';
+      }
+    }
+
+    function toggleAutoPreview() {
+      autoPreviewEnabled = !autoPreviewEnabled;
+      localStorage.setItem('cleanhub_autopreview', String(autoPreviewEnabled));
+      updateAutoPreviewBtn();
+      if (!autoPreviewEnabled) {
+        stopAllPreviews();
+        showToast('스크롤 자동 미리보기를 껐습니다.');
+      } else {
+        observeVisibleThumbs();
+        showToast('화면 중앙 영상 자동 미리보기를 켰습니다.');
+      }
     }
 
     function openSettings() {
@@ -359,6 +399,7 @@
       });
       if (tab === 'favorites') renderFavorites();
       if (tab === 'history') renderHistory();
+      observeVisibleThumbs();
     }
 
     function updateFavBadge() {
@@ -458,10 +499,11 @@
       document.getElementById('genre-modal').classList.add('hidden');
     }
 
-    // ==================== 마우스 호버 / 모바일 터치 자동 미리보기 ====================
+    // ==================== 스크롤 중앙 자동 미리보기 + 마우스 호버 미리보기 ====================
     function startPreview(containerEl, encodedPreview) {
       const previewUrl = decodeURIComponent(encodedPreview || '');
       if (!previewUrl) return;
+      if (!document.getElementById('player-modal').classList.contains('hidden')) return;
       if (containerEl.querySelector('video.preview-vid')) return;
 
       stopAllPreviews();
@@ -501,6 +543,7 @@
     }
 
     function stopAllPreviews() {
+      clearTimeout(previewDelayTimer);
       if (activePreviewContainer) stopPreview(activePreviewContainer);
     }
 
@@ -514,6 +557,53 @@
       }
     }
 
+    // 화면 중앙 영역(상하 22% 제외)에 들어온 카드 자동 감지
+    function observeVisibleThumbs() {
+      if (scrollObserver) {
+        scrollObserver.disconnect();
+        scrollObserver = null;
+      }
+      if (!autoPreviewEnabled) return;
+
+      const activeSection = document.getElementById(`view-${currentTab}`);
+      if (!activeSection) return;
+      const targets = activeSection.querySelectorAll('.thumb-wrap[data-preview]');
+      if (targets.length === 0) return;
+
+      scrollObserver = new IntersectionObserver((entries) => {
+        if (!autoPreviewEnabled) return;
+        if (!document.getElementById('player-modal').classList.contains('hidden')) return;
+
+        let bestEntry = null;
+        for (const entry of entries) {
+          if (!entry.isIntersecting && entry.target === activePreviewContainer) {
+            stopPreview(entry.target);
+          } else if (entry.isIntersecting) {
+            if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
+              bestEntry = entry;
+            }
+          }
+        }
+
+        if (bestEntry && bestEntry.target !== activePreviewContainer) {
+          clearTimeout(previewDelayTimer);
+          const el = bestEntry.target;
+          const enc = el.dataset.preview;
+          previewDelayTimer = setTimeout(() => {
+            if (autoPreviewEnabled && document.getElementById('player-modal').classList.contains('hidden')) {
+              startPreview(el, enc);
+            }
+          }, 350);
+        }
+      }, {
+        root: null,
+        rootMargin: '-22% 0px -22% 0px',
+        threshold: [0.45, 0.75]
+      });
+
+      targets.forEach(t => scrollObserver.observe(t));
+    }
+
     // ==================== 카드 렌더링 공통 함수 ====================
     function isFav(vkey) {
       return favorites.some(f => f.vkey === vkey);
@@ -522,20 +612,28 @@
     function buildVideoCardHtml(item) {
       const faved = isFav(item.vkey);
       const encPreview = encodeURIComponent(item.preview || '');
+      const encFallbackThumb = encodeURIComponent(item.thumb || '');
+      const primaryThumb = item.thumbHd || item.thumb || '';
       const safeChannel = (item.channel || '').replace(/'/g, "\\'");
 
       return `
-        <article class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden">
+        <article class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden shadow-md">
           <div
             onclick="openVideo('${item.vkey}')"
             onmouseenter="startPreview(this, '${encPreview}')"
             onmouseleave="stopPreview(this)"
+            ${item.preview ? `data-preview="${encPreview}"` : ''}
             class="thumb-wrap relative w-full aspect-video bg-black cursor-pointer active:opacity-95 overflow-hidden"
           >
-            <img src="${proxyUrl(item.thumb)}" loading="lazy" class="w-full h-full object-cover">
+            <img
+              src="${proxyUrl(primaryThumb)}"
+              onerror="fallbackThumb(this, '${encFallbackThumb}')"
+              loading="lazy"
+              class="w-full h-full object-cover"
+            >
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div class="w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
+              <div class="w-12 h-12 rounded-full bg-black/50 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
                 <span class="text-white text-lg ml-0.5">▶</span>
               </div>
             </div>
@@ -550,14 +648,18 @@
             ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 z-20 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md">${escapeHtml(item.duration)}</span>` : ''}
           </div>
           <div class="px-4 py-3 flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0 space-y-1">
+            <div class="flex-1 min-w-0 space-y-1.5">
               <h3 onclick="openVideo('${item.vkey}')" class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2 cursor-pointer">${escapeHtml(item.title)}</h3>
-              ${item.channel ? `
-                <button onclick="searchByChannel('${safeChannel}')" class="inline-flex items-center space-x-1 text-xs font-bold text-zinc-400 hover:text-amber-400 transition">
-                  <span>📺</span>
-                  <span class="truncate max-w-[230px]">${escapeHtml(item.channel)}</span>
-                </button>
-              ` : ''}
+              <div class="flex items-center">
+                ${item.channel ? `
+                  <button onclick="searchByChannel('${safeChannel}')" class="inline-flex items-center space-x-1.5 text-xs font-extrabold text-amber-300 bg-zinc-800/90 hover:bg-zinc-700 px-2.5 py-1 rounded-full max-w-full transition">
+                    <span>📺</span>
+                    <span class="truncate">${escapeHtml(item.channel)}</span>
+                  </button>
+                ` : `
+                  <span class="text-[11px] text-zinc-500 font-bold">📺 일반 업로더</span>
+                `}
+              </div>
             </div>
             <button onclick="toggleFavoriteByVkey('${item.vkey}')" class="shrink-0 w-9 h-9 rounded-xl bg-zinc-800/90 flex items-center justify-center text-base active:scale-90 transition" title="찜하기">
               ${faved ? '❤️' : '🤍'}
@@ -608,6 +710,7 @@
           data.items.forEach(it => { lastItemsMap[it.vkey] = it; });
           grid.innerHTML = data.items.map(buildVideoCardHtml).join('');
           bottomPager.classList.remove('hidden');
+          observeVisibleThumbs();
         }
       } catch (e) {
         grid.innerHTML = `<div class="mx-3 bg-rose-950/60 border border-rose-800 rounded-xl p-4 text-xs text-rose-200">불러오기 실패: ${e.message}</div>`;
@@ -651,6 +754,7 @@
           vkey: meta.vkey,
           title: meta.title,
           thumb: meta.thumb,
+          thumbHd: meta.thumbHd || meta.thumb,
           preview: meta.preview || '',
           channel: meta.channel || '',
           duration: meta.duration || ''
@@ -660,8 +764,8 @@
       localStorage.setItem('cleanhub_favorites', JSON.stringify(favorites));
       updateFavBadge();
       updatePlayerFavButton();
-      if (currentTab === 'favorites') renderFavorites();
-      else if (currentTab === 'history') renderHistory();
+      if (currentTab === 'favorites') { renderFavorites(); observeVisibleThumbs(); }
+      else if (currentTab === 'history') { renderHistory(); observeVisibleThumbs(); }
       else {
         document.querySelectorAll(`button[onclick="toggleFavoriteByVkey('${vkey}')"]`).forEach(btn => {
           btn.textContent = isFav(vkey) ? '❤️' : '🤍';
@@ -757,6 +861,7 @@
           vkey,
           title: data.title,
           thumb: data.thumb || (known ? known.thumb : ''),
+          thumbHd: data.thumbHd || (known ? (known.thumbHd || known.thumb) : ''),
           preview: known ? (known.preview || '') : '',
           channel: data.channel || (known ? (known.channel || '') : ''),
           duration: known ? (known.duration || '') : ''
@@ -910,7 +1015,6 @@
       }
     }
 
-    // ESC 키로 팝업 닫기 지원
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !document.getElementById('player-modal').classList.contains('hidden')) {
         closePlayer();
@@ -918,6 +1022,7 @@
     });
 
     // 초기화
+    updateAutoPreviewBtn();
     renderSortButtons();
     renderGenreBar();
     updateFavBadge();
