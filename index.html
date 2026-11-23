@@ -17,7 +17,7 @@
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Pretendard", Roboto, sans-serif;
       padding-top: env(safe-area-inset-top);
-      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
     }
   </style>
 </head>
@@ -36,17 +36,17 @@
     </div>
   </header>
 
-  <main class="max-w-lg mx-auto p-4 space-y-4">
+  <main class="max-w-lg mx-auto pt-3 space-y-4">
 
     <!-- Worker 미설정 안내 배너 -->
-    <div id="setup-banner" class="hidden bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 text-xs text-amber-200 space-y-2">
+    <div id="setup-banner" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-2xl p-4 text-xs text-amber-200 space-y-2">
       <p class="font-extrabold text-sm">⚙️ 먼저 Cloudflare Worker 주소를 연결해 주세요</p>
       <p class="text-amber-200/80 leading-relaxed">우측 상단 <b>[⚙️ 서버 설정]</b>을 눌러 배포한 <code>https://...workers.dev</code> 주소를 입력하면 우회 앱 없이 바로 작동합니다.</p>
       <button onclick="openSettings()" class="bg-amber-500 text-black font-extrabold px-3 py-2 rounded-xl">지금 주소 입력하기</button>
     </div>
 
     <!-- 검색 & URL 직접 입력 -->
-    <form onsubmit="handleSearch(event)" class="flex space-x-2">
+    <form onsubmit="handleSearch(event)" class="flex space-x-2 px-3">
       <input
         type="text"
         id="search-input"
@@ -58,15 +58,15 @@
       </button>
     </form>
 
-    <!-- 광고 없는 전용 플레이어 -->
-    <section id="player-box" class="hidden bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+    <!-- 광고 없는 전용 플레이어 (가로 꽉 참) -->
+    <section id="player-box" class="hidden bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden shadow-2xl">
       <div class="w-full aspect-video bg-black relative">
         <video id="video-el" class="w-full h-full" controls playsinline></video>
       </div>
-      <div class="p-3.5 space-y-3">
+      <div class="p-4 space-y-3">
         <div class="flex items-start justify-between gap-2">
-          <h2 id="player-title" class="text-sm font-bold text-white leading-snug line-clamp-2">영상 제목</h2>
-          <button onclick="closePlayer()" class="text-zinc-400 hover:text-white text-lg px-1">✕</button>
+          <h2 id="player-title" class="text-[15px] font-bold text-white leading-snug line-clamp-2">영상 제목</h2>
+          <button onclick="closePlayer()" class="text-zinc-400 hover:text-white text-lg px-1.5 shrink-0">✕</button>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -79,7 +79,7 @@
           </select>
         </div>
 
-        <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-2.5 rounded-xl font-extrabold text-xs transition">
+        <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-3 rounded-xl font-extrabold text-xs transition">
           📥 현재 화질 동영상 다운로드
         </button>
 
@@ -97,22 +97,31 @@
     </section>
 
     <!-- 로딩 표시 -->
-    <div id="loading-el" class="hidden py-10 text-center space-y-2">
-      <div class="inline-block w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+    <div id="loading-el" class="hidden py-12 text-center space-y-2">
+      <div class="inline-block w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
       <p id="loading-msg" class="text-xs text-zinc-400">해외 중계 서버에서 불러오는 중...</p>
     </div>
 
-    <!-- 영상 목록 그리드 -->
+    <!-- 영상 목록 피드 (모바일 1열 대형 카드) -->
     <section class="space-y-3">
-      <div class="flex items-center justify-between px-1">
-        <h2 id="list-heading" class="text-xs font-extrabold text-amber-400">🔥 인기 동영상</h2>
+      <div class="flex items-center justify-between px-3">
+        <h2 id="list-heading" class="text-sm font-extrabold text-amber-400">🔥 인기 동영상</h2>
         <div class="flex items-center space-x-1.5">
-          <button onclick="changePage(-1)" class="bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-lg text-xs font-bold text-zinc-300">◀</button>
-          <span id="page-num" class="text-xs font-bold text-zinc-400 px-1">1P</span>
-          <button onclick="changePage(1)" class="bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-lg text-xs font-bold text-zinc-300">▶</button>
+          <button onclick="changePage(-1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">◀ 이전</button>
+          <span id="page-num" class="text-xs font-bold text-zinc-400 px-1.5">1P</span>
+          <button onclick="changePage(1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">다음 ▶</button>
         </div>
       </div>
-      <div id="video-grid" class="grid grid-cols-2 gap-3"></div>
+
+      <!-- 1열 세로 배치 컨테이너 -->
+      <div id="video-grid" class="flex flex-col space-y-5"></div>
+
+      <!-- 하단 페이지 이동 바 -->
+      <div id="bottom-pager" class="hidden flex items-center justify-center space-x-3 pt-2 pb-4 px-3">
+        <button onclick="changePage(-1)" class="flex-1 bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-xs font-extrabold text-zinc-200 active:scale-[0.98]">◀ 이전 페이지</button>
+        <span id="page-num-bottom" class="text-xs font-extrabold text-amber-400 px-2">1P</span>
+        <button onclick="changePage(1)" class="flex-1 bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-xs font-extrabold text-zinc-200 active:scale-[0.98]">다음 페이지 ▶</button>
+      </div>
     </section>
 
   </main>
@@ -187,9 +196,12 @@
       }
       const loading = document.getElementById('loading-el');
       const grid = document.getElementById('video-grid');
+      const bottomPager = document.getElementById('bottom-pager');
       loading.classList.remove('hidden');
+      bottomPager.classList.add('hidden');
       document.getElementById('loading-msg').textContent = '목록을 불러오는 중...';
       document.getElementById('page-num').textContent = `${currentPage}P`;
+      document.getElementById('page-num-bottom').textContent = `${currentPage}P`;
       document.getElementById('list-heading').textContent = currentQuery ? `🔎 "${currentQuery}" 검색 결과` : '🔥 인기 동영상';
 
       try {
@@ -198,22 +210,29 @@
         if (data.error) throw new Error(data.error);
 
         if (!data.items || data.items.length === 0) {
-          grid.innerHTML = `<div class="col-span-2 text-center text-xs text-zinc-500 py-8">표시할 영상이 없습니다.</div>`;
+          grid.innerHTML = `<div class="text-center text-xs text-zinc-500 py-10">표시할 영상이 없습니다.</div>`;
         } else {
           grid.innerHTML = data.items.map(item => `
-            <div onclick="openVideo('${item.vkey}')" class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition">
-              <div class="relative aspect-video bg-zinc-950">
+            <article onclick="openVideo('${item.vkey}')" class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden cursor-pointer active:opacity-90 transition">
+              <div class="relative w-full aspect-video bg-black">
                 <img src="${proxyUrl(item.thumb)}" loading="lazy" class="w-full h-full object-cover">
-                ${item.duration ? `<span class="absolute bottom-1 right-1 bg-black/80 text-[10px] font-bold text-white px-1.5 py-0.5 rounded">${item.duration}</span>` : ''}
+                <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none"></div>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div class="w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
+                    <span class="text-white text-lg ml-0.5">▶</span>
+                  </div>
+                </div>
+                ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md tracking-wide">${item.duration}</span>` : ''}
               </div>
-              <div class="p-2">
-                <p class="text-xs font-bold text-zinc-200 line-clamp-2 leading-snug">${item.title}</p>
+              <div class="px-4 py-3">
+                <h3 class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2">${item.title}</h3>
               </div>
-            </div>
+            </article>
           `).join('');
+          bottomPager.classList.remove('hidden');
         }
       } catch (e) {
-        grid.innerHTML = `<div class="col-span-2 bg-rose-950/60 border border-rose-800 rounded-xl p-4 text-xs text-rose-200">불러오기 실패: ${e.message}</div>`;
+        grid.innerHTML = `<div class="mx-3 bg-rose-950/60 border border-rose-800 rounded-xl p-4 text-xs text-rose-200">불러오기 실패: ${e.message}</div>`;
       } finally {
         loading.classList.add('hidden');
       }
