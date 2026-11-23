@@ -47,47 +47,6 @@
       <button onclick="openSettings()" class="bg-amber-500 text-black font-extrabold px-3 py-2 rounded-xl">지금 주소 입력하기</button>
     </div>
 
-    <!-- 광고 없는 전용 플레이어 (모든 탭 공통 상단 표시) -->
-    <section id="player-box" class="hidden bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden shadow-2xl">
-      <div class="w-full aspect-video bg-black relative">
-        <video id="video-el" class="w-full h-full" controls playsinline></video>
-      </div>
-      <div class="p-4 space-y-3">
-        <div class="flex items-start justify-between gap-2">
-          <h2 id="player-title" class="text-[15px] font-bold text-white leading-snug line-clamp-2 flex-1">영상 제목</h2>
-          <div class="flex items-center space-x-1 shrink-0">
-            <button onclick="toggleCurrentFavorite()" id="player-fav-btn" class="text-lg px-2 py-1 rounded-lg bg-zinc-800 active:scale-95">🤍</button>
-            <button onclick="closePlayer()" class="text-zinc-400 hover:text-white text-lg px-2 py-1">✕</button>
-          </div>
-        </div>
-
-        <div class="flex items-center space-x-2">
-          <select id="quality-select" onchange="switchQuality(this.value)" class="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-xl px-3 py-2.5 outline-none"></select>
-          <select onchange="document.getElementById('video-el').playbackRate = parseFloat(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-xl px-2.5 py-2.5 outline-none">
-            <option value="1" selected>1.0x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2.0x</option>
-          </select>
-        </div>
-
-        <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-3 rounded-xl font-extrabold text-xs transition">
-          📥 현재 화질 동영상 다운로드
-        </button>
-
-        <!-- HLS 병합 다운로드 진행률 -->
-        <div id="dl-progress-wrap" class="hidden space-y-1">
-          <div class="flex justify-between text-[11px] text-zinc-400">
-            <span id="dl-progress-label">스트림 병합 중...</span>
-            <span id="dl-progress-pct" class="font-bold text-emerald-400">0%</span>
-          </div>
-          <div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <div id="dl-progress-bar" class="h-full bg-emerald-500 transition-all" style="width: 0%"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- ==================== 탭 1: 탐색 (검색 · 정렬 · 장르) ==================== -->
     <section id="view-explore" class="space-y-3">
 
@@ -96,7 +55,7 @@
         <input
           type="text"
           id="search-input"
-          placeholder="검색어 또는 영상 URL 붙여넣기..."
+          placeholder="검색어, 채널명 또는 영상 URL..."
           class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:ring-2 focus:ring-amber-500 outline-none"
         >
         <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-black font-extrabold px-4 rounded-xl text-xs shrink-0">
@@ -104,7 +63,7 @@
         </button>
       </form>
 
-      <!-- 정렬 탭 (인기순 / 최신순 / 최고평점 / 급상승) -->
+      <!-- 정렬 탭 -->
       <div class="grid grid-cols-4 gap-1.5 px-3">
         <button onclick="setSort('mv')" data-sort="mv" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-amber-500 text-black">🔥 인기순</button>
         <button onclick="setSort('cm')" data-sort="cm" class="sort-btn py-2 rounded-xl text-xs font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🆕 최신순</button>
@@ -181,8 +140,71 @@
     </div>
   </nav>
 
+  <!-- ==================== 유튜브 스타일 팝업 플레이어 모달 ==================== -->
+  <div id="player-modal" onclick="if(event.target===this) closePlayer()" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center sm:p-4">
+    <div class="bg-zinc-900 border border-zinc-800 sm:rounded-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden shadow-2xl">
+      <!-- 팝업 상단 닫기 바 -->
+      <div class="flex items-center justify-between px-4 py-2.5 bg-zinc-950 border-b border-zinc-800">
+        <div class="flex items-center space-x-2 overflow-hidden">
+          <span class="bg-amber-500 text-black font-black text-[10px] px-1.5 py-0.5 rounded">PLAYER</span>
+          <span id="player-channel-top" onclick="searchFromPlayerChannel()" class="text-xs font-bold text-amber-400 truncate cursor-pointer hover:underline">채널 정보</span>
+        </div>
+        <button onclick="closePlayer()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-extrabold px-3 py-1.5 rounded-lg">✕ 닫기</button>
+      </div>
+
+      <!-- 16:9 비디오 영역 -->
+      <div class="w-full aspect-video bg-black relative shrink-0">
+        <video id="video-el" class="w-full h-full" controls playsinline></video>
+        <div id="player-loading" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center space-y-2">
+          <div class="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-xs font-bold text-zinc-300">광고 제거 및 고화질 스트림 추출 중...</p>
+        </div>
+      </div>
+
+      <!-- 하단 컨트롤 & 상세 정보 (스크롤 가능) -->
+      <div class="p-4 space-y-3 overflow-y-auto">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h2 id="player-title" class="text-[15px] font-extrabold text-white leading-snug">영상 불러오는 중...</h2>
+            <button id="player-channel-btn" onclick="searchFromPlayerChannel()" class="hidden mt-1.5 inline-flex items-center space-x-1 text-xs font-bold text-zinc-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-full">
+              <span>📺</span>
+              <span id="player-channel-name"></span>
+            </button>
+          </div>
+          <button onclick="toggleCurrentFavorite()" id="player-fav-btn" class="text-xl w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0 active:scale-90 transition">🤍</button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <select id="quality-select" onchange="switchQuality(this.value)" class="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-xl px-3 py-2.5 outline-none"></select>
+          <select id="speed-select" onchange="document.getElementById('video-el').playbackRate = parseFloat(this.value)" class="bg-zinc-800 border border-zinc-700 text-zinc-100 text-xs font-bold rounded-xl px-2.5 py-2.5 outline-none">
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1.0x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2.0x</option>
+          </select>
+        </div>
+
+        <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-3 rounded-xl font-extrabold text-xs transition">
+          📥 현재 화질 동영상 다운로드
+        </button>
+
+        <!-- HLS 병합 다운로드 진행률 -->
+        <div id="dl-progress-wrap" class="hidden space-y-1">
+          <div class="flex justify-between text-[11px] text-zinc-400">
+            <span id="dl-progress-label">스트림 병합 중...</span>
+            <span id="dl-progress-pct" class="font-bold text-emerald-400">0%</span>
+          </div>
+          <div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div id="dl-progress-bar" class="h-full bg-emerald-500 transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 전체 장르 선택 모달 -->
-  <div id="genre-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-end sm:items-center justify-center sm:p-4">
+  <div id="genre-modal" onclick="if(event.target===this) closeGenreModal()" class="fixed inset-0 bg-black/80 z-50 hidden flex items-end sm:items-center justify-center sm:p-4">
     <div class="bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
       <div class="p-4 border-b border-zinc-800 flex items-center justify-between">
         <h3 class="font-extrabold text-sm text-white">📂 전체 장르 분류</h3>
@@ -193,7 +215,7 @@
   </div>
 
   <!-- Worker URL 설정 모달 -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+  <div id="settings-modal" onclick="if(event.target===this) closeSettings()" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
         <h3 class="font-extrabold text-sm text-white">⚙️ Cloudflare Worker 서버 주소</h3>
@@ -207,7 +229,7 @@
     </div>
   </div>
 
-  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-50"></div>
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-[60]"></div>
 
   <script>
     if ('serviceWorker' in navigator) {
@@ -250,6 +272,7 @@
     let currentVideoMeta = null;
     let isDownloading = false;
     let cachedAllCategories = null;
+    let activePreviewContainer = null;
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -304,8 +327,28 @@
       loadList();
     }
 
+    function searchByChannel(channelName) {
+      if (!channelName) return;
+      currentQuery = channelName;
+      currentPage = 1;
+      document.getElementById('search-input').value = channelName;
+      switchTab('explore');
+      renderGenreBar();
+      loadList();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function searchFromPlayerChannel() {
+      if (currentVideoMeta && currentVideoMeta.channel) {
+        const ch = currentVideoMeta.channel;
+        closePlayer();
+        searchByChannel(ch);
+      }
+    }
+
     // ==================== 탭 전환 ====================
     function switchTab(tab) {
+      stopAllPreviews();
       currentTab = tab;
       ['explore', 'favorites', 'history'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
@@ -415,6 +458,62 @@
       document.getElementById('genre-modal').classList.add('hidden');
     }
 
+    // ==================== 마우스 호버 / 모바일 터치 자동 미리보기 ====================
+    function startPreview(containerEl, encodedPreview) {
+      const previewUrl = decodeURIComponent(encodedPreview || '');
+      if (!previewUrl) return;
+      if (containerEl.querySelector('video.preview-vid')) return;
+
+      stopAllPreviews();
+      activePreviewContainer = containerEl;
+
+      const vid = document.createElement('video');
+      vid.className = 'preview-vid absolute inset-0 w-full h-full object-cover z-10 pointer-events-none';
+      vid.src = proxyUrl(previewUrl);
+      vid.muted = true;
+      vid.loop = true;
+      vid.autoplay = true;
+      vid.playsInline = true;
+      vid.setAttribute('muted', '');
+      vid.setAttribute('playsinline', '');
+      containerEl.appendChild(vid);
+
+      const badge = document.createElement('span');
+      badge.className = 'preview-badge absolute top-2.5 right-2.5 z-20 bg-amber-500 text-black text-[10px] font-black px-2 py-0.5 rounded-md shadow pointer-events-none';
+      badge.textContent = '미리보기 재생 중';
+      containerEl.appendChild(badge);
+
+      vid.play().catch(() => {});
+    }
+
+    function stopPreview(containerEl) {
+      if (!containerEl) return;
+      const vid = containerEl.querySelector('video.preview-vid');
+      if (vid) {
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        vid.remove();
+      }
+      const badge = containerEl.querySelector('.preview-badge');
+      if (badge) badge.remove();
+      if (activePreviewContainer === containerEl) activePreviewContainer = null;
+    }
+
+    function stopAllPreviews() {
+      if (activePreviewContainer) stopPreview(activePreviewContainer);
+    }
+
+    function toggleMobilePreview(e, btnEl, encodedPreview) {
+      e.stopPropagation();
+      const containerEl = btnEl.closest('.thumb-wrap');
+      if (containerEl.querySelector('video.preview-vid')) {
+        stopPreview(containerEl);
+      } else {
+        startPreview(containerEl, encodedPreview);
+      }
+    }
+
     // ==================== 카드 렌더링 공통 함수 ====================
     function isFav(vkey) {
       return favorites.some(f => f.vkey === vkey);
@@ -422,20 +521,44 @@
 
     function buildVideoCardHtml(item) {
       const faved = isFav(item.vkey);
+      const encPreview = encodeURIComponent(item.preview || '');
+      const safeChannel = (item.channel || '').replace(/'/g, "\\'");
+
       return `
         <article class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden">
-          <div onclick="openVideo('${item.vkey}')" class="relative w-full aspect-video bg-black cursor-pointer active:opacity-90">
+          <div
+            onclick="openVideo('${item.vkey}')"
+            onmouseenter="startPreview(this, '${encPreview}')"
+            onmouseleave="stopPreview(this)"
+            class="thumb-wrap relative w-full aspect-video bg-black cursor-pointer active:opacity-95 overflow-hidden"
+          >
             <img src="${proxyUrl(item.thumb)}" loading="lazy" class="w-full h-full object-cover">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div class="w-12 h-12 rounded-full bg-black/55 backdrop-blur-sm border border-white/25 flex items-center justify-center shadow-lg">
                 <span class="text-white text-lg ml-0.5">▶</span>
               </div>
             </div>
-            ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md">${escapeHtml(item.duration)}</span>` : ''}
+            ${item.preview ? `
+              <button
+                onclick="toggleMobilePreview(event, this, '${encPreview}')"
+                class="absolute top-2.5 left-2.5 z-20 bg-black/75 hover:bg-amber-500 hover:text-black text-zinc-100 text-[10px] font-extrabold px-2 py-1 rounded-md border border-white/15 backdrop-blur-sm transition"
+              >
+                👁️ 미리보기
+              </button>
+            ` : ''}
+            ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 z-20 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md">${escapeHtml(item.duration)}</span>` : ''}
           </div>
           <div class="px-4 py-3 flex items-start justify-between gap-3">
-            <h3 onclick="openVideo('${item.vkey}')" class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2 flex-1 cursor-pointer">${escapeHtml(item.title)}</h3>
+            <div class="flex-1 min-w-0 space-y-1">
+              <h3 onclick="openVideo('${item.vkey}')" class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2 cursor-pointer">${escapeHtml(item.title)}</h3>
+              ${item.channel ? `
+                <button onclick="searchByChannel('${safeChannel}')" class="inline-flex items-center space-x-1 text-xs font-bold text-zinc-400 hover:text-amber-400 transition">
+                  <span>📺</span>
+                  <span class="truncate max-w-[230px]">${escapeHtml(item.channel)}</span>
+                </button>
+              ` : ''}
+            </div>
             <button onclick="toggleFavoriteByVkey('${item.vkey}')" class="shrink-0 w-9 h-9 rounded-xl bg-zinc-800/90 flex items-center justify-center text-base active:scale-90 transition" title="찜하기">
               ${faved ? '❤️' : '🤍'}
             </button>
@@ -449,6 +572,7 @@
         document.getElementById('setup-banner').classList.remove('hidden');
         return;
       }
+      stopAllPreviews();
       const loading = document.getElementById('loading-el');
       const grid = document.getElementById('video-grid');
       const bottomPager = document.getElementById('bottom-pager');
@@ -527,6 +651,8 @@
           vkey: meta.vkey,
           title: meta.title,
           thumb: meta.thumb,
+          preview: meta.preview || '',
+          channel: meta.channel || '',
           duration: meta.duration || ''
         });
         showToast('❤️ 찜한 영상에 저장했습니다!');
@@ -537,15 +663,9 @@
       if (currentTab === 'favorites') renderFavorites();
       else if (currentTab === 'history') renderHistory();
       else {
-        // 탐색 목록의 하트 상태 즉시 갱신
-        const grid = document.getElementById('video-grid');
-        if (grid.children.length > 0) {
-          const items = Object.values(lastItemsMap);
-          // 현재 렌더링된 카드만 가볍게 갱신하기 위해 버튼 아이콘 업데이트
-          document.querySelectorAll(`button[onclick="toggleFavoriteByVkey('${vkey}')"]`).forEach(btn => {
-            btn.textContent = isFav(vkey) ? '❤️' : '🤍';
-          });
-        }
+        document.querySelectorAll(`button[onclick="toggleFavoriteByVkey('${vkey}')"]`).forEach(btn => {
+          btn.textContent = isFav(vkey) ? '❤️' : '🤍';
+        });
       }
     }
 
@@ -602,16 +722,29 @@
       renderHistory();
     }
 
-    // ==================== 영상 추출 · 재생 · 다운로드 ====================
+    // ==================== 유튜브 스타일 팝업 영상 추출 · 재생 · 다운로드 ====================
     async function openVideo(vkey) {
       if (!workerUrl) { openSettings(); return; }
-      const loading = document.getElementById('loading-el');
-      if (currentTab === 'explore') {
-        loading.classList.remove('hidden');
-        document.getElementById('loading-msg').textContent = '광고 제거 및 고화질 스트림 추출 중...';
-      } else {
-        showToast('영상 스트림을 불러오는 중...');
-      }
+      stopAllPreviews();
+
+      const modal = document.getElementById('player-modal');
+      const pLoading = document.getElementById('player-loading');
+      const video = document.getElementById('video-el');
+      const known = lastItemsMap[vkey] || favorites.find(f => f.vkey === vkey) || watchHistory.find(h => h.vkey === vkey);
+
+      if (hls) { hls.destroy(); hls = null; }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      document.getElementById('speed-select').value = '1';
+
+      document.getElementById('player-title').textContent = known ? known.title : '영상 불러오는 중...';
+      updatePlayerChannelUI(known ? known.channel : '');
+      document.getElementById('quality-select').innerHTML = `<option>화질 분석 중...</option>`;
+
+      pLoading.classList.remove('hidden');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
 
       try {
         const res = await fetch(`${workerUrl}/api/extract?vkey=${encodeURIComponent(vkey)}`);
@@ -620,16 +753,18 @@
         if (!data.streams || data.streams.length === 0) throw new Error('재생 가능한 스트림이 없습니다.');
 
         currentStreams = data.streams;
-        const known = lastItemsMap[vkey] || favorites.find(f => f.vkey === vkey) || watchHistory.find(h => h.vkey === vkey);
         currentVideoMeta = {
           vkey,
           title: data.title,
           thumb: data.thumb || (known ? known.thumb : ''),
-          duration: known ? known.duration : ''
+          preview: known ? (known.preview || '') : '',
+          channel: data.channel || (known ? (known.channel || '') : ''),
+          duration: known ? (known.duration || '') : ''
         };
         addToHistory(currentVideoMeta);
 
-        document.getElementById('player-title').textContent = data.title;
+        document.getElementById('player-title').textContent = currentVideoMeta.title;
+        updatePlayerChannelUI(currentVideoMeta.channel);
         updatePlayerFavButton();
 
         const sel = document.getElementById('quality-select');
@@ -637,13 +772,26 @@
           `<option value="${idx}">${s.quality}p (${s.format.toUpperCase()})</option>`
         ).join('');
 
-        document.getElementById('player-box').classList.remove('hidden');
+        pLoading.classList.add('hidden');
         switchQuality(0);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (e) {
+        pLoading.classList.add('hidden');
         showToast(`추출 실패: ${e.message}`);
-      } finally {
-        loading.classList.add('hidden');
+        closePlayer();
+      }
+    }
+
+    function updatePlayerChannelUI(channelName) {
+      const topEl = document.getElementById('player-channel-top');
+      const btnEl = document.getElementById('player-channel-btn');
+      const nameEl = document.getElementById('player-channel-name');
+      if (channelName) {
+        topEl.textContent = channelName;
+        nameEl.textContent = channelName;
+        btnEl.classList.remove('hidden');
+      } else {
+        topEl.textContent = 'CleanHub 팝업 플레이어';
+        btnEl.classList.add('hidden');
       }
     }
 
@@ -681,9 +829,11 @@
     function closePlayer() {
       const video = document.getElementById('video-el');
       video.pause();
-      video.src = '';
+      video.removeAttribute('src');
+      video.load();
       if (hls) { hls.destroy(); hls = null; }
-      document.getElementById('player-box').classList.add('hidden');
+      document.getElementById('player-modal').classList.add('hidden');
+      document.body.style.overflow = '';
     }
 
     async function downloadCurrent() {
@@ -759,6 +909,13 @@
         setTimeout(() => wrap.classList.add('hidden'), 3000);
       }
     }
+
+    // ESC 키로 팝업 닫기 지원
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('player-modal').classList.contains('hidden')) {
+        closePlayer();
+      }
+    });
 
     // 초기화
     renderSortButtons();
