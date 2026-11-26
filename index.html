@@ -17,7 +17,7 @@
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "Pretendard", Roboto, sans-serif;
       padding-top: env(safe-area-inset-top);
-      padding-bottom: calc(5.2rem + env(safe-area-inset-bottom));
+      padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
     }
     .scrollbar-none::-webkit-scrollbar { display: none; }
     .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
@@ -31,7 +31,7 @@
       <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
-        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.1</span>
+        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.2</span>
         <span id="cookie-status-dot" class="hidden w-2 h-2 rounded-full bg-emerald-400" title="세션 쿠키 연동됨"></span>
       </div>
       <div class="flex items-center space-x-1.5">
@@ -54,7 +54,7 @@
       <button onclick="openSettings()" class="bg-amber-500 text-black font-extrabold px-3 py-2 rounded-xl">지금 주소 입력하기</button>
     </div>
 
-    <!-- ==================== 탭 1: 탐색 (검색 · 맞춤추천 · 정렬 · 장르) ==================== -->
+    <!-- ==================== 탭 1: 탐색 ==================== -->
     <section id="view-explore" class="space-y-3">
 
       <!-- 검색 & URL 직접 입력 -->
@@ -82,7 +82,7 @@
       <!-- 장르별 분류 가로 스크롤 바 -->
       <div class="flex items-center space-x-1.5 overflow-x-auto px-3 pb-1 scrollbar-none" id="genre-bar"></div>
 
-      <!-- 쿠키 미입력 / 만료 안내 배너 (맞춤추천 선택 시 표시) -->
+      <!-- 쿠키 안내 배너 -->
       <div id="reco-auth-notice" class="hidden mx-3 bg-indigo-500/15 border border-indigo-500/40 rounded-2xl p-3.5 text-xs text-indigo-200 flex items-center justify-between gap-2">
         <p id="reco-auth-msg" class="leading-snug">개인 알고리즘 추천을 보려면 <b>[⚙️ 설정]</b>에서 로그인 쿠키를 입력해 주세요.</p>
         <button onclick="openSettings()" class="bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-lg shrink-0">쿠키 입력</button>
@@ -123,7 +123,6 @@
           <button onclick="loadUserPlaylists()" class="text-xs bg-zinc-900 border border-zinc-800 text-zinc-200 px-3 py-1.5 rounded-lg font-bold">🔄 새로고침</button>
         </div>
 
-        <!-- 플레이리스트 URL/번호 직접 열기 -->
         <form onsubmit="openPlaylistByInput(event)" class="flex space-x-2">
           <input
             type="text"
@@ -135,10 +134,8 @@
         </form>
       </div>
 
-      <!-- 플레이리스트 목록 뷰 -->
       <div id="playlists-list-wrap" class="px-3 space-y-2.5"></div>
 
-      <!-- 선택된 플레이리스트 내부 영상 피드 뷰 -->
       <div id="playlist-detail-wrap" class="hidden space-y-3">
         <div class="px-3 flex items-center justify-between">
           <button onclick="backToPlaylists()" class="text-xs bg-zinc-800 text-zinc-200 font-extrabold px-3 py-1.5 rounded-lg">◀ 목록으로</button>
@@ -148,7 +145,7 @@
       </div>
     </section>
 
-    <!-- ==================== 탭 3: 즐겨찾기 (찜한 영상) ==================== -->
+    <!-- ==================== 탭 3: 즐겨찾기 ==================== -->
     <section id="view-favorites" class="hidden space-y-3">
       <div class="flex items-center justify-between px-3">
         <h2 class="text-sm font-extrabold text-rose-400">❤️ 찜한 영상 보관함</h2>
@@ -167,6 +164,27 @@
     </section>
 
   </main>
+
+  <!-- ==================== 전역 백그라운드 다운로드 플로팅 바 ==================== -->
+  <div id="global-dl-bar" class="hidden fixed left-3 right-3 z-40 max-w-lg mx-auto" style="bottom: calc(4.2rem + env(safe-area-inset-bottom));">
+    <div class="bg-zinc-900/95 backdrop-blur border border-emerald-500/50 rounded-2xl p-3 shadow-2xl space-y-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span class="inline-block w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0"></span>
+          <p id="global-dl-title" class="text-xs font-extrabold text-white truncate">다운로드 준비 중...</p>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0">
+          <span id="global-dl-queue-badge" class="hidden text-[10px] bg-zinc-800 text-amber-300 font-bold px-1.5 py-0.5 rounded">대기 +0</span>
+          <span id="global-dl-pct" class="text-xs font-black text-emerald-400">0%</span>
+          <button onclick="cancelActiveDownload()" class="text-[11px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-extrabold px-2 py-0.5 rounded-md">취소</button>
+        </div>
+      </div>
+      <div class="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+        <div id="global-dl-progress" class="h-full bg-emerald-500 transition-all duration-150" style="width: 0%"></div>
+      </div>
+      <p id="global-dl-detail" class="text-[10px] text-zinc-400 truncate">다른 영상을 보셔도 백그라운드에서 계속 다운로드됩니다.</p>
+    </div>
+  </div>
 
   <!-- 하단 고정 네비게이션 바 (4탭) -->
   <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-30" style="padding-bottom: env(safe-area-inset-bottom);">
@@ -234,18 +252,8 @@
         </div>
 
         <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-3 rounded-xl font-extrabold text-xs transition">
-          📥 현재 화질 동영상 다운로드
+          📥 현재 화질 백그라운드 다운로드
         </button>
-
-        <div id="dl-progress-wrap" class="hidden space-y-1">
-          <div class="flex justify-between text-[11px] text-zinc-400">
-            <span id="dl-progress-label">스트림 병합 중...</span>
-            <span id="dl-progress-pct" class="font-bold text-emerald-400">0%</span>
-          </div>
-          <div class="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <div id="dl-progress-bar" class="h-full bg-emerald-500 transition-all" style="width: 0%"></div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -288,7 +296,7 @@
     </div>
   </div>
 
-  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-[60]"></div>
+  <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-xs font-extrabold px-4 py-2 rounded-full shadow-lg hidden z-[70] whitespace-nowrap"></div>
 
   <script>
     if ('serviceWorker' in navigator) {
@@ -332,11 +340,22 @@
     let hls = null;
     let currentStreams = [];
     let currentVideoMeta = null;
-    let isDownloading = false;
     let cachedAllCategories = null;
     let activePreviewContainer = null;
     let scrollObserver = null;
     let previewDelayTimer = null;
+
+    // 백그라운드 다운로드 대기열 관리 상태
+    const downloadQueue = [];
+    let activeDownloadTask = null;
+
+    // 다운로드 중 앱 실수 종료 방지
+    window.addEventListener('beforeunload', (e) => {
+      if (activeDownloadTask || downloadQueue.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -460,7 +479,6 @@
       }
     }
 
-    // ==================== 탭 전환 ====================
     function switchTab(tab) {
       stopAllPreviews();
       currentTab = tab;
@@ -487,7 +505,6 @@
       }
     }
 
-    // ==================== 정렬 & 장르 ====================
     function renderSortButtons() {
       document.querySelectorAll('.sort-btn').forEach(btn => {
         const active = btn.dataset.sort === currentSort;
@@ -582,7 +599,6 @@
       document.getElementById('genre-modal').classList.add('hidden');
     }
 
-    // ==================== 스크롤 중앙 자동 미리보기 + 마우스 호버 미리보기 ====================
     function startPreview(containerEl, encodedPreview) {
       const previewUrl = decodeURIComponent(encodedPreview || '');
       if (!previewUrl) return;
@@ -686,7 +702,6 @@
       targets.forEach(t => scrollObserver.observe(t));
     }
 
-    // ==================== 카드 렌더링 공통 함수 ====================
     function isFav(vkey) {
       return favorites.some(f => f.vkey === vkey);
     }
@@ -750,7 +765,6 @@
         </article>`;
     }
 
-    // ==================== 목록 & 맞춤추천 불러오기 ====================
     async function loadList() {
       if (!workerUrl) {
         document.getElementById('setup-banner').classList.remove('hidden');
@@ -849,7 +863,6 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // ==================== 내 플레이리스트 탭 ====================
     async function loadUserPlaylists() {
       if (!workerUrl) { openSettings(); return; }
       const listWrap = document.getElementById('playlists-list-wrap');
@@ -943,7 +956,6 @@
       document.getElementById('playlists-list-wrap').classList.remove('hidden');
     }
 
-    // ==================== 즐겨찾기(찜) & 최근 기록 ====================
     function toggleFavoriteByVkey(vkey) {
       const idx = favorites.findIndex(f => f.vkey === vkey);
       if (idx >= 0) {
@@ -1030,7 +1042,6 @@
       renderHistory();
     }
 
-    // ==================== 유튜브 스타일 팝업 영상 추출 · 재생 · 다운로드 ====================
     async function openVideo(vkey) {
       if (!workerUrl) { openSettings(); return; }
       stopAllPreviews();
@@ -1145,15 +1156,46 @@
       document.body.style.overflow = '';
     }
 
-    // ==================== 수정된 다운로드 로직 (fMP4 헤더 포함 · 오류 검증 · 암호화 감지) ====================
-    async function downloadCurrent() {
-      if (isDownloading || currentStreams.length === 0 || !currentVideoMeta) return;
+    // ==================== 백그라운드 다운로드 대기열 엔진 ====================
+    function updateGlobalDlBar(title, pct, detail) {
+      const barWrap = document.getElementById('global-dl-bar');
+      const queueBadge = document.getElementById('global-dl-queue-badge');
+      if (!activeDownloadTask) {
+        barWrap.classList.add('hidden');
+        return;
+      }
+      barWrap.classList.remove('hidden');
+      document.getElementById('global-dl-title').textContent = title;
+      document.getElementById('global-dl-pct').textContent = `${pct}%`;
+      document.getElementById('global-dl-progress').style.width = `${pct}%`;
+      document.getElementById('global-dl-detail').textContent = detail;
+
+      if (downloadQueue.length > 0) {
+        queueBadge.textContent = `대기 +${downloadQueue.length}`;
+        queueBadge.classList.remove('hidden');
+      } else {
+        queueBadge.classList.add('hidden');
+      }
+    }
+
+    function cancelActiveDownload() {
+      if (activeDownloadTask && activeDownloadTask.controller) {
+        activeDownloadTask.cancelled = true;
+        activeDownloadTask.controller.abort();
+        showToast('현재 다운로드를 취소했습니다.');
+      }
+    }
+
+    function downloadCurrent() {
+      if (currentStreams.length === 0 || !currentVideoMeta) return;
       const idx = parseInt(document.getElementById('quality-select').value, 10);
       const stream = currentStreams[idx];
       if (!stream) return;
-      const safeTitle = currentVideoMeta.title.slice(0, 40).replace(/[^\w가-힣.-]/g, '_');
 
-      // 1. MP4 직접 다운로드
+      const rawTitle = currentVideoMeta.title;
+      const safeTitle = rawTitle.slice(0, 40).replace(/[^\w가-힣.-]/g, '_');
+
+      // 1. MP4는 안드로이드 기본 다운로드 매니저로 즉시 실행 (앱 닫아도 계속 다운로드됨)
       if (stream.format === 'mp4' && !stream.url.includes('.m3u8')) {
         const dlUrl = proxyUrl(stream.url, `&dl=1&name=${encodeURIComponent(safeTitle)}`);
         const a = document.createElement('a');
@@ -1162,9 +1204,44 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
-        showToast('MP4 다운로드를 시작했습니다!');
+        showToast('MP4 다운로드를 시작했습니다! (앱을 닫아도 유지)');
         return;
       }
+
+      // 2. HLS는 대기열에 등록해 플레이어를 닫거나 다른 영상을 봐도 백그라운드 실행
+      const hasMp4Alt = currentStreams.some(s => s.format === 'mp4' && !s.url.includes('.m3u8'));
+      const task = {
+        id: Date.now() + Math.random(),
+        title: rawTitle,
+        safeTitle,
+        streamUrl: stream.url,
+        hasMp4Alt,
+        controller: new AbortController(),
+        cancelled: false
+      };
+
+      downloadQueue.push(task);
+      if (activeDownloadTask) {
+        updateGlobalDlBar(
+          activeDownloadTask.title,
+          activeDownloadTask.pct || 0,
+          activeDownloadTask.detail || '백그라운드 다운로드 진행 중...'
+        );
+        showToast(`대기열에 추가됨 (대기 ${downloadQueue.length}건)`);
+      } else {
+        showToast('백그라운드 다운로드 시작! 창을 닫고 다른 영상을 보셔도 됩니다.');
+        processDownloadQueue();
+      }
+    }
+
+    async function processDownloadQueue() {
+      if (activeDownloadTask || downloadQueue.length === 0) return;
+      activeDownloadTask = downloadQueue.shift();
+      activeDownloadTask.pct = 0;
+      activeDownloadTask.detail = '재생목록(.m3u8) 분석 중...';
+      updateGlobalDlBar(activeDownloadTask.title, 0, activeDownloadTask.detail);
+
+      const { signal } = activeDownloadTask.controller;
 
       const toFetchUrl = (rawBase, line) => {
         const trimmed = line.trim();
@@ -1179,7 +1256,8 @@
 
       const fetchChunkSafe = async (url) => {
         for (let attempt = 0; attempt < 3; attempt++) {
-          const res = await fetch(url);
+          if (signal.aborted) throw new Error('CANCELLED');
+          const res = await fetch(url, { signal });
           if (!res.ok) {
             if (attempt === 2) throw new Error(`조각 응답 오류 (HTTP ${res.status})`);
             continue;
@@ -1188,30 +1266,19 @@
           if (buf.byteLength === 0) throw new Error('빈 영상 조각 수신');
           const head = new TextDecoder().decode(buf.slice(0, 15)).trim().toLowerCase();
           if (head.startsWith('<!doctype') || head.startsWith('<html')) {
-            throw new Error('서버 차단으로 영상 대신 오류 페이지가 수신됨');
+            throw new Error('서버 차단으로 오류 페이지 수신됨');
           }
           return buf;
         }
       };
 
-      isDownloading = true;
-      const wrap = document.getElementById('dl-progress-wrap');
-      const bar = document.getElementById('dl-progress-bar');
-      const pctEl = document.getElementById('dl-progress-pct');
-      const labelEl = document.getElementById('dl-progress-label');
-      wrap.classList.remove('hidden');
-      bar.style.width = '0%';
-      pctEl.textContent = '0%';
-
       try {
-        labelEl.textContent = '재생목록(.m3u8) 분석 중...';
-        let rawBaseUrl = stream.url;
-        let text = await fetch(proxyUrl(rawBaseUrl)).then(r => {
+        let rawBaseUrl = activeDownloadTask.streamUrl;
+        let text = await fetch(proxyUrl(rawBaseUrl), { signal }).then(r => {
           if (!r.ok) throw new Error(`재생목록 로드 실패 (${r.status})`);
           return r.text();
         });
 
-        // 마스터 플레이리스트면 하위 미디어 플레이리스트로 진입
         if (text.includes('#EXT-X-STREAM-INF')) {
           const nextLine = text.split(/\r?\n/).find(l => l.trim() && !l.startsWith('#'));
           if (nextLine) {
@@ -1219,27 +1286,24 @@
             if (!nextLine.trim().startsWith(workerUrl)) {
               try { rawBaseUrl = new URL(nextLine.trim(), rawBaseUrl).href; } catch (_) {}
             }
-            text = await fetch(subUrl).then(r => {
+            text = await fetch(subUrl, { signal }).then(r => {
               if (!r.ok) throw new Error(`하위 목록 로드 실패 (${r.status})`);
               return r.text();
             });
           }
         }
 
-        // AES-128 암호화 여부 사전 차단
         if (/#EXT-X-KEY:[^\n]*METHOD=AES-128/i.test(text)) {
-          const hasMp4 = currentStreams.some(s => s.format === 'mp4' && !s.url.includes('.m3u8'));
           throw new Error(
-            hasMp4
-              ? '암호화된 HLS 스트림입니다. 화질 목록에서 (MP4) 항목을 선택해 다운로드해 주세요.'
-              : '암호화(AES-128)가 걸린 영상이라 브라우저 병합 다운로드를 지원하지 않습니다.'
+            activeDownloadTask.hasMp4Alt
+              ? '암호화된 HLS입니다. 화질 목록에서 (MP4)를 선택해 주세요.'
+              : '암호화(AES-128) 영상이라 브라우저 병합을 지원하지 않습니다.'
           );
         }
 
         const segs = [];
         let isFmp4 = false;
 
-        // fMP4(.m4s) 영상의 필수 초기화 헤더(#EXT-X-MAP) 추출
         const mapMatch = text.match(/#EXT-X-MAP:[^\n]*URI="([^"]+)"/i);
         if (mapMatch && mapMatch[1]) {
           isFmp4 = true;
@@ -1259,14 +1323,15 @@
         const chunks = new Array(segs.length);
         let done = 0;
         for (let i = 0; i < segs.length; i += 4) {
+          if (signal.aborted) throw new Error('CANCELLED');
           const batch = segs.slice(i, i + 4);
           await Promise.all(batch.map(async (u, j) => {
             chunks[i + j] = await fetchChunkSafe(u);
             done++;
             const pct = Math.round((done / segs.length) * 100);
-            bar.style.width = `${pct}%`;
-            pctEl.textContent = `${pct}%`;
-            labelEl.textContent = `조각 저장 중 (${done} / ${segs.length})`;
+            activeDownloadTask.pct = pct;
+            activeDownloadTask.detail = `백그라운드 병합 중 (${done} / ${segs.length}) · 다른 영상 시청 가능`;
+            updateGlobalDlBar(activeDownloadTask.title, pct, activeDownloadTask.detail);
           }));
         }
 
@@ -1276,17 +1341,23 @@
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = `${safeTitle}.${ext}`;
+        a.download = `${activeDownloadTask.safeTitle}.${ext}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-        showToast(`다운로드 완료! (.${ext})`);
+        showToast(`✅ 저장 완료: ${activeDownloadTask.safeTitle}.${ext}`);
       } catch (e) {
-        showToast(`다운로드 중단: ${e.message}`);
+        if (e.name !== 'AbortError' && e.message !== 'CANCELLED') {
+          showToast(`다운로드 중단: ${e.message}`);
+        }
       } finally {
-        isDownloading = false;
-        setTimeout(() => wrap.classList.add('hidden'), 3000);
+        activeDownloadTask = null;
+        if (downloadQueue.length > 0) {
+          processDownloadQueue();
+        } else {
+          updateGlobalDlBar('', 0, '');
+        }
       }
     }
 
