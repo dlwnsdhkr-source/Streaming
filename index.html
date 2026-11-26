@@ -31,6 +31,7 @@
       <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
+        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.1</span>
         <span id="cookie-status-dot" class="hidden w-2 h-2 rounded-full bg-emerald-400" title="세션 쿠키 연동됨"></span>
       </div>
       <div class="flex items-center space-x-1.5">
@@ -69,7 +70,7 @@
         </button>
       </form>
 
-      <!-- 정렬 탭 (맞춤추천 포함 5개 가로 스크롤/균등) -->
+      <!-- 정렬 탭 -->
       <div class="flex items-center space-x-1.5 overflow-x-auto px-3 scrollbar-none">
         <button onclick="setSort('reco')" data-sort="reco" class="sort-btn px-3 py-2 rounded-xl text-xs font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800">✨ 맞춤추천</button>
         <button onclick="setSort('mv')" data-sort="mv" class="sort-btn px-3 py-2 rounded-xl text-xs font-extrabold shrink-0 bg-amber-500 text-black">🔥 인기순</button>
@@ -342,7 +343,7 @@
       t.textContent = msg;
       t.classList.remove('hidden');
       clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2300);
+      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2600);
     }
 
     function escapeHtml(str) {
@@ -356,7 +357,6 @@
       return `${workerUrl}/api/proxy?url=${encodeURIComponent(target)}${extra}`;
     }
 
-    // 쿠키 헤더 자동 포함 API 호출 함수
     function apiFetch(path) {
       const headers = {};
       if (userCookie) headers['X-User-Cookie'] = userCookie;
@@ -1145,13 +1145,15 @@
       document.body.style.overflow = '';
     }
 
+    // ==================== 수정된 다운로드 로직 (fMP4 헤더 포함 · 오류 검증 · 암호화 감지) ====================
     async function downloadCurrent() {
       if (isDownloading || currentStreams.length === 0 || !currentVideoMeta) return;
       const idx = parseInt(document.getElementById('quality-select').value, 10);
       const stream = currentStreams[idx];
       if (!stream) return;
-      const safeTitle = currentVideoMeta.title.slice(0, 40);
+      const safeTitle = currentVideoMeta.title.slice(0, 40).replace(/[^\w가-힣.-]/g, '_');
 
+      // 1. MP4 직접 다운로드
       if (stream.format === 'mp4' && !stream.url.includes('.m3u8')) {
         const dlUrl = proxyUrl(stream.url, `&dl=1&name=${encodeURIComponent(safeTitle)}`);
         const a = document.createElement('a');
@@ -1160,9 +1162,37 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
-        showToast('안드로이드 다운로드를 시작했습니다!');
+        showToast('MP4 다운로드를 시작했습니다!');
         return;
       }
+
+      const toFetchUrl = (rawBase, line) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith(workerUrl)) return trimmed;
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return proxyUrl(trimmed);
+        try {
+          return proxyUrl(new URL(trimmed, rawBase).href);
+        } catch (_) {
+          return trimmed;
+        }
+      };
+
+      const fetchChunkSafe = async (url) => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const res = await fetch(url);
+          if (!res.ok) {
+            if (attempt === 2) throw new Error(`조각 응답 오류 (HTTP ${res.status})`);
+            continue;
+          }
+          const buf = await res.arrayBuffer();
+          if (buf.byteLength === 0) throw new Error('빈 영상 조각 수신');
+          const head = new TextDecoder().decode(buf.slice(0, 15)).trim().toLowerCase();
+          if (head.startsWith('<!doctype') || head.startsWith('<html')) {
+            throw new Error('서버 차단으로 영상 대신 오류 페이지가 수신됨');
+          }
+          return buf;
+        }
+      };
 
       isDownloading = true;
       const wrap = document.getElementById('dl-progress-wrap');
@@ -1170,20 +1200,60 @@
       const pctEl = document.getElementById('dl-progress-pct');
       const labelEl = document.getElementById('dl-progress-label');
       wrap.classList.remove('hidden');
+      bar.style.width = '0%';
+      pctEl.textContent = '0%';
 
       try {
-        labelEl.textContent = '재생목록 분석 중...';
-        let m3u8Url = proxyUrl(stream.url);
-        let text = await fetch(m3u8Url).then(r => r.text());
+        labelEl.textContent = '재생목록(.m3u8) 분석 중...';
+        let rawBaseUrl = stream.url;
+        let text = await fetch(proxyUrl(rawBaseUrl)).then(r => {
+          if (!r.ok) throw new Error(`재생목록 로드 실패 (${r.status})`);
+          return r.text();
+        });
 
+        // 마스터 플레이리스트면 하위 미디어 플레이리스트로 진입
         if (text.includes('#EXT-X-STREAM-INF')) {
           const nextLine = text.split(/\r?\n/).find(l => l.trim() && !l.startsWith('#'));
           if (nextLine) {
-            text = await fetch(nextLine.trim()).then(r => r.text());
+            const subUrl = toFetchUrl(rawBaseUrl, nextLine);
+            if (!nextLine.trim().startsWith(workerUrl)) {
+              try { rawBaseUrl = new URL(nextLine.trim(), rawBaseUrl).href; } catch (_) {}
+            }
+            text = await fetch(subUrl).then(r => {
+              if (!r.ok) throw new Error(`하위 목록 로드 실패 (${r.status})`);
+              return r.text();
+            });
           }
         }
 
-        const segs = text.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+        // AES-128 암호화 여부 사전 차단
+        if (/#EXT-X-KEY:[^\n]*METHOD=AES-128/i.test(text)) {
+          const hasMp4 = currentStreams.some(s => s.format === 'mp4' && !s.url.includes('.m3u8'));
+          throw new Error(
+            hasMp4
+              ? '암호화된 HLS 스트림입니다. 화질 목록에서 (MP4) 항목을 선택해 다운로드해 주세요.'
+              : '암호화(AES-128)가 걸린 영상이라 브라우저 병합 다운로드를 지원하지 않습니다.'
+          );
+        }
+
+        const segs = [];
+        let isFmp4 = false;
+
+        // fMP4(.m4s) 영상의 필수 초기화 헤더(#EXT-X-MAP) 추출
+        const mapMatch = text.match(/#EXT-X-MAP:[^\n]*URI="([^"]+)"/i);
+        if (mapMatch && mapMatch[1]) {
+          isFmp4 = true;
+          segs.push(toFetchUrl(rawBaseUrl, mapMatch[1]));
+        }
+
+        text.split(/\r?\n/).forEach(line => {
+          const l = line.trim();
+          if (l && !l.startsWith('#')) {
+            if (/\.m4s(\?|$)/i.test(l)) isFmp4 = true;
+            segs.push(toFetchUrl(rawBaseUrl, l));
+          }
+        });
+
         if (segs.length === 0) throw new Error('영상 조각을 찾지 못했습니다.');
 
         const chunks = new Array(segs.length);
@@ -1191,8 +1261,7 @@
         for (let i = 0; i < segs.length; i += 4) {
           const batch = segs.slice(i, i + 4);
           await Promise.all(batch.map(async (u, j) => {
-            const res = await fetch(u);
-            chunks[i + j] = await res.arrayBuffer();
+            chunks[i + j] = await fetchChunkSafe(u);
             done++;
             const pct = Math.round((done / segs.length) * 100);
             bar.style.width = `${pct}%`;
@@ -1201,18 +1270,20 @@
           }));
         }
 
-        const blob = new Blob(chunks, { type: 'video/mp2t' });
+        const ext = isFmp4 ? 'mp4' : 'ts';
+        const mime = isFmp4 ? 'video/mp4' : 'video/mp2t';
+        const blob = new Blob(chunks, { type: mime });
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = `${safeTitle.replace(/[^\w가-힣.-]/g, '_')}.ts`;
+        a.download = `${safeTitle}.${ext}`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-        showToast('다운로드가 완료되었습니다!');
+        showToast(`다운로드 완료! (.${ext})`);
       } catch (e) {
-        showToast(`다운로드 오류: ${e.message}`);
+        showToast(`다운로드 중단: ${e.message}`);
       } finally {
         isDownloading = false;
         setTimeout(() => wrap.classList.add('hidden'), 3000);
