@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CleanHub v2.7 - 안드로이드 전용 플레이어</title>
+  <title>CleanHub v2.8 - 안드로이드 전용 플레이어</title>
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,7 +48,7 @@
       <div onclick="App.Explore.resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
-        <span class="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">v2.7</span>
+        <span class="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">v2.8</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <button onclick="App.UI.toggleAutoPreview()" id="auto-preview-btn" class="text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition">
@@ -101,13 +101,23 @@
       <!-- 검색 일치 채널 / 빠른 구독 바 -->
       <div id="quick-subs-bar" class="hidden flex items-center space-x-1.5 overflow-x-auto px-3 pb-0.5 scrollbar-none"></div>
 
-      <!-- 정렬 탭 -->
-      <div class="grid grid-cols-5 gap-1 px-3">
-        <button onclick="App.Explore.setSort('rel')" data-sort="rel" class="sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🎯 정확</button>
-        <button onclick="App.Explore.setSort('mv')" data-sort="mv" class="sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-amber-500 text-black">🔥 인기</button>
-        <button onclick="App.Explore.setSort('cm')" data-sort="cm" class="sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🆕 최신</button>
-        <button onclick="App.Explore.setSort('tr')" data-sort="tr" class="sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⭐ 평점</button>
-        <button onclick="App.Explore.setSort('ht')" data-sort="ht" class="sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⚡ 급상승</button>
+      <!-- 정렬 탭 (앱 자체 맞춤추천 포함) -->
+      <div class="flex items-center space-x-1.5 overflow-x-auto px-3 scrollbar-none">
+        <button onclick="App.Explore.setSort('for_you')" data-sort="for_you" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">✨ 맞춤</button>
+        <button onclick="App.Explore.setSort('mv')" data-sort="mv" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-amber-500 text-black">🔥 인기</button>
+        <button onclick="App.Explore.setSort('cm')" data-sort="cm" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🆕 최신</button>
+        <button onclick="App.Explore.setSort('tr')" data-sort="tr" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⭐ 평점</button>
+        <button onclick="App.Explore.setSort('ht')" data-sort="ht" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">⚡ 급상승</button>
+        <button onclick="App.Explore.setSort('rel')" data-sort="rel" class="sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">🎯 정확</button>
+      </div>
+
+      <!-- 자체 맞춤추천 분석 기준 배너 -->
+      <div id="foryou-info-bar" class="hidden mx-3 bg-indigo-500/15 border border-indigo-500/35 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
+        <div class="min-w-0 space-y-0.5">
+          <p class="text-[11px] font-extrabold text-indigo-300">✨ 내 취향 기반 자체 맞춤추천</p>
+          <p id="foryou-info-desc" class="text-[10px] text-indigo-200/80 truncate">구독·찜·시청 기록을 분석하는 중...</p>
+        </div>
+        <button onclick="App.Explore.refreshForYou()" class="shrink-0 bg-indigo-500 hover:bg-indigo-400 text-white text-[11px] font-extrabold px-2.5 py-1.5 rounded-lg active:scale-95 transition">🔄 새로 섞기</button>
       </div>
 
       <!-- 기간 & 길이/HD 필터 바 -->
@@ -459,7 +469,7 @@
     const App = (() => {
       // ==================== 1. Config ====================
       const Config = {
-        VERSION: '2.7',
+        VERSION: '2.8',
         PRESET_GENRES: [
           { label: '전체', value: '' },
           { label: '🇰🇷 한국', value: 'korean' },
@@ -473,6 +483,7 @@
           { label: '🌳 야외', value: 'public' }
         ],
         SORT_LABELS: {
+          for_you: '✨ 내 맞춤추천',
           rel: '🎯 정확도순',
           mv: '🔥 인기순',
           cm: '🆕 최신순',
@@ -739,6 +750,7 @@
               </div>
               <div class="px-4 py-3 flex items-start justify-between gap-3">
                 <div class="flex-1 min-w-0 space-y-1.5">
+                  ${item.recoReason ? `<span class="inline-block text-[10px] font-extrabold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 rounded-md mb-0.5">✨ ${this.esc(item.recoReason)}</span>` : ''}
                   <h3 onclick="App.Player.open('${this.escAttr(item.vkey)}')" class="text-[15px] font-bold text-zinc-100 leading-snug line-clamp-2 cursor-pointer">${this.esc(item.title)}</h3>
                   <div class="flex items-center">
                     ${item.channel ? `
@@ -754,6 +766,148 @@
                 </button>
               </div>
             </article>`;
+        }
+      };
+
+      // ==================== 4.5. ForYou (앱 자체 취향 분석 맞춤추천 엔진) ====================
+      const ForYou = {
+        STOP_WORDS: new Set([
+          'the','and','for','with','this','that','from','your','have','will','what','when','where','into','over','more','just','very','some','only','real','free','full','video','videos','part','best','hot','new','xxx','porn','sex','1080p','720p','480p','4k','uhd','hd','official','episode','clip','watch','online','gets','her','his','she','him','you','are','out','all','big','too','not','but','can','one','two','now','how','who','why','off','back'
+        ]),
+        seenVkeys: new Set(),
+        shuffleOffset: 0,
+
+        extractKeywords(title) {
+          if (!title) return [];
+          const tokens = title
+            .toLowerCase()
+            .replace(/[^a-z0-9가-힣\s]/g, ' ')
+            .split(/\s+/)
+            .filter(w => {
+              if (!w) return false;
+              if (/^[가-힣]+$/.test(w)) return w.length >= 2;
+              if (/^[a-z]+$/.test(w)) return w.length >= 3 && !this.STOP_WORDS.has(w);
+              return false;
+            });
+          return tokens;
+        },
+
+        analyzeTaste() {
+          const chScores = new Map();
+          const kwScores = new Map();
+
+          const addCh = (name, path, weight) => {
+            if (!path || !name) return;
+            const prev = chScores.get(path) || { name, path, score: 0 };
+            prev.score += weight;
+            chScores.set(path, prev);
+          };
+
+          const addTitle = (title, weight) => {
+            const seenInTitle = new Set();
+            for (const kw of this.extractKeywords(title)) {
+              if (seenInTitle.has(kw)) continue;
+              seenInTitle.add(kw);
+              kwScores.set(kw, (kwScores.get(kw) || 0) + weight);
+            }
+          };
+
+          // 1) 구독 채널 (가장 높은 가중치)
+          Store.subs.forEach(s => addCh(s.name, s.path, 5));
+          // 2) 찜한 영상 (채널 + 키워드)
+          Store.favorites.slice(0, 40).forEach(f => {
+            addCh(f.channel, f.channelUrl, 3);
+            addTitle(f.title, 2);
+          });
+          // 3) 최근 시청 기록
+          Store.history.slice(0, 30).forEach((h, idx) => {
+            const recency = idx < 10 ? 1.5 : 1.0;
+            addCh(h.channel, h.channelUrl, 1.5 * recency);
+            addTitle(h.title, 1.0 * recency);
+          });
+
+          const topChannels = Array.from(chScores.values())
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 6);
+
+          const topKeywords = Array.from(kwScores.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([kw]) => kw)
+            .slice(0, 8);
+
+          return { topChannels, topKeywords };
+        },
+
+        reset() {
+          this.seenVkeys.clear();
+        },
+
+        async fetchFeed(page) {
+          const { topChannels, topKeywords } = this.analyzeTaste();
+          const descEl = document.getElementById('foryou-info-desc');
+          const watchedSet = new Set(Store.history.map(h => h.vkey));
+
+          if (topChannels.length === 0 && topKeywords.length === 0) {
+            if (descEl) descEl.textContent = '아직 찜·구독·시청 기록이 없어 이번 주 인기 영상을 표시합니다. 기록이 쌓이면 자동으로 맞춰집니다.';
+            const data = await Api.fetchJson(`/api/list?sort=mv&t=w&page=${page}`);
+            return (data.items || []).map(it => ({ ...it, recoReason: '인기 추천 (기록 수집 중)' }));
+          }
+
+          // 페이지와 셔플 오프셋에 따라 상위 시드 중 채널 2개 + 키워드 3개를 순환 선택
+          const pickRotated = (arr, count, seed) => {
+            if (arr.length <= count) return arr;
+            const out = [];
+            for (let i = 0; i < count; i++) {
+              out.push(arr[(seed + i) % arr.length]);
+            }
+            return out;
+          };
+
+          const seed = (page - 1) + this.shuffleOffset;
+          const pickedCh = pickRotated(topChannels, 2, seed);
+          const pickedKw = pickRotated(topKeywords, 3, seed);
+          const apiPage = Math.max(1, Math.floor((page - 1) / 2) + 1 + (this.shuffleOffset % 2));
+
+          const summaryParts = [];
+          if (pickedCh.length) summaryParts.push('📺 ' + pickedCh.map(c => c.name).join(', '));
+          if (pickedKw.length) summaryParts.push('🏷️ ' + pickedKw.map(k => '#' + k).join(' '));
+          if (descEl) descEl.textContent = summaryParts.join(' · ');
+
+          const tasks = [
+            ...pickedCh.map(c => ({
+              reason: `선호 채널 · ${c.name}`,
+              promise: Api.fetchJson(`/api/list?channel=${encodeURIComponent(c.path)}&sort=cm&page=${apiPage}`)
+            })),
+            ...pickedKw.map(kw => ({
+              reason: `취향 키워드 · #${kw}`,
+              promise: Api.fetchJson(`/api/list?q=${encodeURIComponent(kw)}&sort=mv&t=m&page=${apiPage}`)
+            }))
+          ];
+
+          const settled = await Promise.allSettled(tasks.map(t => t.promise));
+          const buckets = [];
+          settled.forEach((res, idx) => {
+            if (res.status === 'fulfilled' && Array.isArray(res.value?.items)) {
+              const tagged = res.value.items.map(it => ({ ...it, recoReason: tasks[idx].reason }));
+              buckets.push(tagged);
+            }
+          });
+
+          // 라운드 로빈으로 고르게 섞되 이미 본 영상은 뒤로 미루고 중복 제거
+          const fresh = [];
+          const seenWatched = [];
+          const maxLen = Math.max(0, ...buckets.map(b => b.length));
+          for (let i = 0; i < maxLen; i++) {
+            for (const b of buckets) {
+              const it = b[i];
+              if (!it || !it.vkey || this.seenVkeys.has(it.vkey)) continue;
+              this.seenVkeys.add(it.vkey);
+              if (watchedSet.has(it.vkey)) seenWatched.push(it);
+              else fresh.push(it);
+            }
+          }
+
+          return [...fresh, ...seenWatched].slice(0, 24);
         }
       };
 
@@ -800,9 +954,11 @@
           document.querySelectorAll('.sort-btn').forEach(b => {
             const active = b.dataset.sort === this.sort;
             b.className = active
-              ? 'sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-amber-500 text-black shadow'
-              : 'sort-btn py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800';
+              ? 'sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-amber-500 text-black shadow'
+              : 'sort-btn shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800';
           });
+          const fyBar = document.getElementById('foryou-info-bar');
+          if (fyBar) fyBar.classList.toggle('hidden', this.sort !== 'for_you');
           document.querySelectorAll('.period-btn').forEach(b => {
             const active = b.dataset.period === this.period;
             b.className = active
@@ -845,11 +1001,31 @@
           const customChip = customActive ? `<button class="px-3 py-1.5 rounded-full text-xs font-bold shrink-0 bg-white text-black">${UI.esc(this.genre.label)}</button>` : '';
           bar.innerHTML = chips + customChip + `<button onclick="App.Explore.openGenreModal()" class="px-3 py-1.5 rounded-full text-xs font-extrabold shrink-0 bg-amber-500/15 border border-amber-500/40 text-amber-300">📂 전체 장르 +</button>`;
         },
-        setSort(s) { this.sort = s; this.page = 1; this.renderControls(); this.load(true); },
+        setSort(s) {
+          this.sort = s;
+          if (s === 'for_you') {
+            this.query = '';
+            this.activeChannel = null;
+            this.genre = { label: '전체', value: '' };
+            document.getElementById('search-input').value = '';
+          }
+          this.page = 1;
+          this.renderControls();
+          this.load(true);
+        },
+        refreshForYou() {
+          ForYou.shuffleOffset += 1;
+          this.sort = 'for_you';
+          this.page = 1;
+          this.renderControls();
+          this.load(true);
+          UI.toast('취향 추천 목록을 새로 섞었습니다!');
+        },
         setPeriod(p) { this.period = p; this.page = 1; this.renderControls(); this.load(true); },
         setDuration(d) { this.duration = d; this.page = 1; this.renderControls(); this.load(true); },
         toggleHdOnly() { this.hdOnly = !this.hdOnly; this.page = 1; this.renderControls(); this.load(true); },
         selectGenre(label, value) {
+          if (this.sort === 'for_you') this.sort = 'mv';
           this.query = '';
           this.activeChannel = null;
           document.getElementById('search-input').value = '';
@@ -939,7 +1115,9 @@
 
           const sortText = Config.SORT_LABELS[this.sort] || '인기순';
           const periodText = Config.PERIOD_LABELS[this.period] || '';
-          if (this.activeChannel) {
+          if (this.sort === 'for_you') {
+            document.getElementById('list-heading').textContent = '✨ 나만의 맞춤추천 피드';
+          } else if (this.activeChannel) {
             document.getElementById('list-heading').textContent = `📺 ${this.activeChannel.name} · ${sortText}`;
           } else if (this.query) {
             document.getElementById('list-heading').textContent = `🔎 "${this.query}" (${sortText})`;
@@ -963,10 +1141,18 @@
             else if (this.duration === 'long') params.set('min_d', '30');
             if (this.hdOnly) params.set('hd', '1');
 
-            const data = await Api.fetchJson(`/api/list?${params.toString()}`);
-            if (reset) this.renderMatchedChannels(data.channels || []);
-
-            const items = data.items || [];
+            let items = [];
+            if (this.sort === 'for_you') {
+              if (reset) {
+                this.renderMatchedChannels([]);
+                ForYou.reset();
+              }
+              items = await ForYou.fetchFeed(this.page);
+            } else {
+              const data = await Api.fetchJson(`/api/list?${params.toString()}`);
+              if (reset) this.renderMatchedChannels(data.channels || []);
+              items = data.items || [];
+            }
             if (items.length === 0) {
               this.hasMore = false;
               if (reset) grid.innerHTML = `<div class="text-center text-xs text-zinc-500 py-10">표시할 영상이 없습니다.</div>`;
@@ -2012,6 +2198,10 @@
         Explore.initInfiniteScroll();
         Player.initGesturesAndShortcuts();
         Shorties.updateSkipPill();
+        if (Store.subs.length > 0 || Store.favorites.length > 0 || Store.history.length > 0) {
+          Explore.sort = 'for_you';
+          Explore.renderControls();
+        }
         if (Store.workerUrl) Explore.load(true);
         else document.getElementById('setup-banner').classList.remove('hidden');
       };
