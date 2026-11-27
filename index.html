@@ -21,6 +21,10 @@
     }
     .scrollbar-none::-webkit-scrollbar { display: none; }
     .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+    .shorties-feed {
+      height: calc(100dvh - 7.4rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      scroll-snap-type: y mandatory;
+    }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen select-none">
@@ -31,7 +35,7 @@
       <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
-        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.3</span>
+        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.4</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <button onclick="toggleAutoPreview()" id="auto-preview-btn" class="text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition">
@@ -54,7 +58,7 @@
     </div>
 
     <!-- ==================== 탭 1: 탐색 ==================== -->
-    <section id="view-explore" class="space-y-3">
+    <section id="view-explore" class="space-y-2.5">
 
       <!-- 검색 & URL 직접 입력 -->
       <form onsubmit="handleSearch(event)" class="flex space-x-2 px-3">
@@ -69,13 +73,21 @@
         </button>
       </form>
 
-      <!-- 현재 채널 탐색 중 배너 -->
-      <div id="active-channel-bar" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2">
+      <!-- 현재 채널 탐색 중 배너 (구독 버튼 포함) -->
+      <div id="active-channel-bar" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
         <div class="flex items-center space-x-2 min-w-0">
           <span class="text-sm">📺</span>
           <p id="active-channel-label" class="text-xs font-extrabold text-amber-300 truncate">채널 영상 보기</p>
         </div>
-        <button onclick="clearChannelFilter()" class="text-[11px] bg-zinc-900 text-zinc-200 font-extrabold px-2.5 py-1 rounded-lg shrink-0">✕ 전체로</button>
+        <div class="flex items-center space-x-1.5 shrink-0">
+          <button onclick="toggleActiveChannelSub()" id="active-channel-sub-btn" class="text-[11px] bg-amber-500 text-black font-extrabold px-2.5 py-1 rounded-lg">⭐ 구독</button>
+          <button onclick="clearChannelFilter()" class="text-[11px] bg-zinc-900 text-zinc-200 font-extrabold px-2.5 py-1 rounded-lg">✕</button>
+        </div>
+      </div>
+
+      <!-- 구독 채널 빠른 이동 바 (구독한 채널이 있을 때만 표시) -->
+      <div id="quick-subs-wrap" class="hidden px-3">
+        <div id="quick-subs-bar" class="flex items-center space-x-1.5 overflow-x-auto pb-0.5 scrollbar-none"></div>
       </div>
 
       <!-- 정렬 탭 -->
@@ -96,6 +108,16 @@
         <button onclick="setPeriod('a')" data-period="a" class="period-btn flex-1 py-1.5 rounded-lg text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800">전체</button>
       </div>
 
+      <!-- 상세 필터 바 (영상 길이 · HD 전용) -->
+      <div id="detail-filter-bar" class="flex items-center space-x-1.5 overflow-x-auto px-3 scrollbar-none">
+        <span class="text-[11px] font-bold text-zinc-500 shrink-0 pr-0.5">⏱️ 길이</span>
+        <button onclick="setDurationFilter('all')" data-dur="all" class="dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-sky-500/20 text-sky-300 border border-sky-500/40">전체</button>
+        <button onclick="setDurationFilter('short')" data-dur="short" class="dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800">10분 미만</button>
+        <button onclick="setDurationFilter('mid')" data-dur="mid" class="dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800">10~30분</button>
+        <button onclick="setDurationFilter('long')" data-dur="long" class="dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800">30분+</button>
+        <button onclick="toggleHdOnly()" id="hd-only-btn" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800">✨ HD만</button>
+      </div>
+
       <!-- 장르별 분류 가로 스크롤 바 -->
       <div class="flex items-center space-x-1.5 overflow-x-auto px-3 pb-1 scrollbar-none" id="genre-bar"></div>
 
@@ -105,36 +127,40 @@
         <div id="matched-channels-bar" class="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none"></div>
       </div>
 
-      <!-- 로딩 표시 -->
-      <div id="loading-el" class="hidden py-12 text-center space-y-2">
-        <div class="inline-block w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-        <p id="loading-msg" class="text-xs text-zinc-400">해외 중계 서버에서 불러오는 중...</p>
-      </div>
-
-      <!-- 현재 목록 헤더 & 페이지 이동 -->
+      <!-- 현재 목록 헤더 -->
       <div class="flex items-center justify-between px-3 pt-1">
         <h2 id="list-heading" class="text-sm font-extrabold text-amber-400 truncate pr-2">🔥 인기 동영상</h2>
-        <div class="flex items-center space-x-1.5 shrink-0">
-          <button onclick="changePage(-1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">◀</button>
-          <span id="page-num" class="text-xs font-bold text-zinc-400 px-1">1P</span>
-          <button onclick="changePage(1)" class="bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 active:scale-95">▶</button>
-        </div>
+        <span id="page-num" class="text-[11px] font-bold text-zinc-500 shrink-0">1P</span>
       </div>
 
       <!-- 1열 대형 미리보기 피드 -->
       <div id="video-grid" class="flex flex-col space-y-5"></div>
 
-      <!-- 하단 페이지 이동 바 -->
-      <div id="bottom-pager" class="hidden flex items-center justify-center space-x-3 pt-2 pb-4 px-3">
-        <button onclick="changePage(-1)" class="flex-1 bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-xs font-extrabold text-zinc-200 active:scale-[0.98]">◀ 이전 페이지</button>
-        <span id="page-num-bottom" class="text-xs font-extrabold text-amber-400 px-2">1P</span>
-        <button onclick="changePage(1)" class="flex-1 bg-zinc-900 border border-zinc-800 py-3 rounded-xl text-xs font-extrabold text-zinc-200 active:scale-[0.98]">다음 페이지 ▶</button>
+      <!-- 로딩 / 무한 스크롤 감지 영역 -->
+      <div id="loading-el" class="hidden py-8 text-center space-y-2">
+        <div class="inline-block w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+        <p id="loading-msg" class="text-xs text-zinc-400">불러오는 중...</p>
+      </div>
+      <div id="scroll-sentinel" class="h-8 flex items-center justify-center">
+        <button onclick="loadMore()" id="manual-more-btn" class="hidden text-xs font-extrabold text-zinc-400 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl">다음 페이지 더 보기 ▼</button>
       </div>
     </section>
 
-    <!-- ==================== 탭 2: 플레이리스트 북마크 ==================== -->
-    <section id="view-playlists" class="hidden space-y-3">
-      <div class="px-3 space-y-2.5">
+    <!-- ==================== 탭 2: ⚡ 쇼츠 (Shorties 세로 스와이프) ==================== -->
+    <section id="view-shorties" class="hidden -mt-3">
+      <div id="shorties-container" class="shorties-feed overflow-y-scroll scrollbar-none bg-black relative"></div>
+    </section>
+
+    <!-- ==================== 탭 3: 📋 보관함 (구독 채널 + 플레이리스트) ==================== -->
+    <section id="view-playlists" class="hidden space-y-4">
+      <!-- 구독한 채널 섹션 -->
+      <div class="px-3 space-y-2">
+        <h2 class="text-sm font-extrabold text-amber-400">⭐ 구독 중인 채널</h2>
+        <div id="subs-list-wrap" class="space-y-2"></div>
+      </div>
+
+      <!-- 플레이리스트 북마크 섹션 -->
+      <div class="px-3 space-y-2.5 pt-2 border-t border-zinc-800/80">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-extrabold text-emerald-400">📋 플레이리스트 북마크</h2>
           <span class="text-[11px] text-zinc-500 font-bold">로그인 불필요</span>
@@ -162,7 +188,7 @@
       </div>
     </section>
 
-    <!-- ==================== 탭 3: 즐겨찾기 ==================== -->
+    <!-- ==================== 탭 4: ❤️ 찜한 영상 ==================== -->
     <section id="view-favorites" class="hidden space-y-3">
       <div class="flex items-center justify-between px-3">
         <h2 class="text-sm font-extrabold text-rose-400">❤️ 찜한 영상 보관함</h2>
@@ -171,7 +197,7 @@
       <div id="favorites-grid" class="flex flex-col space-y-5"></div>
     </section>
 
-    <!-- ==================== 탭 4: 최근 본 영상 ==================== -->
+    <!-- ==================== 탭 5: 🕘 최근 본 영상 ==================== -->
     <section id="view-history" class="hidden space-y-3">
       <div class="flex items-center justify-between px-3">
         <h2 class="text-sm font-extrabold text-sky-400">🕘 최근 본 영상</h2>
@@ -203,25 +229,29 @@
     </div>
   </div>
 
-  <!-- 하단 고정 네비게이션 바 (4탭) -->
+  <!-- 하단 고정 네비게이션 바 (5탭) -->
   <nav class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur border-t border-zinc-800 z-30" style="padding-bottom: env(safe-area-inset-bottom);">
-    <div class="max-w-lg mx-auto grid grid-cols-4 py-2">
+    <div class="max-w-lg mx-auto grid grid-cols-5 py-2">
       <button onclick="switchTab('explore')" id="nav-explore" class="flex flex-col items-center text-amber-400 relative">
         <span class="text-lg">🎬</span>
-        <span class="text-[11px] font-extrabold mt-0.5">탐색</span>
+        <span class="text-[10px] font-extrabold mt-0.5">탐색</span>
+      </button>
+      <button onclick="switchTab('shorties')" id="nav-shorties" class="flex flex-col items-center text-zinc-500 relative">
+        <span class="text-lg">⚡</span>
+        <span class="text-[10px] font-extrabold mt-0.5">쇼츠</span>
       </button>
       <button onclick="switchTab('playlists')" id="nav-playlists" class="flex flex-col items-center text-zinc-500 relative">
         <span class="text-lg">📋</span>
-        <span class="text-[11px] font-extrabold mt-0.5">플리</span>
+        <span class="text-[10px] font-extrabold mt-0.5">보관함</span>
       </button>
       <button onclick="switchTab('favorites')" id="nav-favorites" class="flex flex-col items-center text-zinc-500 relative">
         <span class="text-lg">❤️</span>
-        <span class="text-[11px] font-extrabold mt-0.5">찜</span>
-        <span id="fav-badge" class="hidden absolute top-0 right-5 bg-rose-600 text-white text-[9px] font-extrabold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">0</span>
+        <span class="text-[10px] font-extrabold mt-0.5">찜</span>
+        <span id="fav-badge" class="hidden absolute top-0 right-3 bg-rose-600 text-white text-[9px] font-extrabold min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center">0</span>
       </button>
       <button onclick="switchTab('history')" id="nav-history" class="flex flex-col items-center text-zinc-500 relative">
         <span class="text-lg">🕘</span>
-        <span class="text-[11px] font-extrabold mt-0.5">기록</span>
+        <span class="text-[10px] font-extrabold mt-0.5">기록</span>
       </button>
     </div>
   </nav>
@@ -229,7 +259,7 @@
   <!-- ==================== 유튜브 스타일 팝업 플레이어 모달 ==================== -->
   <div id="player-modal" onclick="if(event.target===this) closePlayer()" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden flex items-center justify-center sm:p-4">
     <div class="bg-zinc-900 border border-zinc-800 sm:rounded-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden shadow-2xl">
-      <div class="flex items-center justify-between px-4 py-2.5 bg-zinc-950 border-b border-zinc-800">
+      <div class="flex items-center justify-between px-4 py-2.5 bg-zinc-950 border-b border-zinc-800 shrink-0">
         <div class="flex items-center space-x-2 overflow-hidden">
           <span class="bg-amber-500 text-black font-black text-[10px] px-1.5 py-0.5 rounded">PLAYER</span>
           <span id="player-channel-top" onclick="openFromPlayerChannel()" class="text-xs font-bold text-amber-400 truncate cursor-pointer hover:underline">채널 정보</span>
@@ -237,22 +267,36 @@
         <button onclick="closePlayer()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-extrabold px-3 py-1.5 rounded-lg">✕ 닫기</button>
       </div>
 
-      <div class="w-full aspect-video bg-black relative shrink-0">
+      <!-- 16:9 비디오 + 제스처 오버레이 (하단 48px은 네이티브 컨트롤 보호) -->
+      <div class="w-full aspect-video bg-black relative shrink-0 overflow-hidden">
         <video id="video-el" class="w-full h-full" controls playsinline></video>
-        <div id="player-loading" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center space-y-2">
+        <div id="gesture-overlay" class="absolute top-0 left-0 right-0 bottom-12 z-10"></div>
+
+        <!-- 제스처 피드백 배지 -->
+        <div id="gesture-seek-left" class="hidden pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-black/75 text-white text-xs font-black px-3.5 py-2 rounded-full backdrop-blur-sm">⏪ -10초</div>
+        <div id="gesture-seek-right" class="hidden pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-black/75 text-white text-xs font-black px-3.5 py-2 rounded-full backdrop-blur-sm">+10초 ⏩</div>
+        <div id="gesture-speed-badge" class="hidden pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-500 text-black text-[11px] font-black px-3 py-1 rounded-full shadow-lg">⚡ 2.0x 배속 재생 중</div>
+
+        <div id="player-loading" class="hidden absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center space-y-2">
           <div class="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
           <p class="text-xs font-bold text-zinc-300">광고 제거 및 고화질 스트림 추출 중...</p>
         </div>
       </div>
 
-      <div class="p-4 space-y-3 overflow-y-auto">
+      <!-- 하단 컨트롤 + 관련 추천 영상 (스크롤 영역) -->
+      <div id="player-scroll-body" class="p-4 space-y-3 overflow-y-auto">
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <h2 id="player-title" class="text-[15px] font-extrabold text-white leading-snug">영상 불러오는 중...</h2>
-            <button id="player-channel-btn" onclick="openFromPlayerChannel()" class="hidden mt-1.5 inline-flex items-center space-x-1 text-xs font-bold text-amber-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-full">
-              <span>📺</span>
-              <span id="player-channel-name"></span>
-            </button>
+            <div class="flex items-center flex-wrap gap-1.5 mt-1.5">
+              <button id="player-channel-btn" onclick="openFromPlayerChannel()" class="hidden inline-flex items-center space-x-1 text-xs font-bold text-amber-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-full">
+                <span>📺</span>
+                <span id="player-channel-name"></span>
+              </button>
+              <button id="player-sub-btn" onclick="togglePlayerChannelSub()" class="hidden text-[11px] font-extrabold bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-full">
+                ⭐ 구독
+              </button>
+            </div>
           </div>
           <button onclick="toggleCurrentFavorite()" id="player-fav-btn" class="text-xl w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0 active:scale-90 transition">🤍</button>
         </div>
@@ -271,6 +315,14 @@
         <button onclick="downloadCurrent()" id="dl-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white py-3 rounded-xl font-extrabold text-xs transition">
           📥 현재 화질 백그라운드 다운로드
         </button>
+
+        <p class="text-[10px] text-zinc-500 text-center">💡 팁: 영상 좌/우 두 번 터치 ±10초 · 길게 누르기 2배속 · 자동 이어보기 지원</p>
+
+        <!-- 관련 추천 영상 영역 -->
+        <div id="player-related-wrap" class="hidden pt-3 border-t border-zinc-800 space-y-2.5">
+          <h3 class="text-xs font-extrabold text-amber-400">🔥 관련 추천 영상</h3>
+          <div id="player-related-list" class="space-y-2.5"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -286,18 +338,30 @@
     </div>
   </div>
 
-  <!-- Worker URL 설정 모달 (쿠키 입력란 제거됨) -->
+  <!-- 설정 & 데이터 백업/복원 모달 -->
   <div id="settings-modal" onclick="if(event.target===this) closeSettings()" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm p-5 space-y-4">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-5 space-y-4">
       <div class="flex justify-between items-center border-b border-zinc-800 pb-2">
-        <h3 class="font-extrabold text-sm text-white">⚙️ Cloudflare Worker 서버 설정</h3>
+        <h3 class="font-extrabold text-sm text-white">⚙️ 서버 설정 & 데이터 백업</h3>
         <button onclick="closeSettings()" class="text-zinc-400 text-lg">✕</button>
       </div>
+
       <div class="space-y-2 text-xs">
-        <label class="block text-zinc-300 font-bold">배포한 Worker 주소 (끝에 / 제외)</label>
+        <label class="block text-zinc-300 font-bold">Cloudflare Worker 주소 (끝에 / 제외)</label>
         <input type="url" id="worker-url-input" placeholder="https://purple-paper-xxxx.workers.dev" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2.5 text-white outline-none">
+        <button onclick="saveSettings()" class="w-full bg-amber-500 text-black font-extrabold py-2.5 rounded-xl text-xs">서버 주소 저장</button>
       </div>
-      <button onclick="saveSettings()" class="w-full bg-amber-500 text-black font-extrabold py-2.5 rounded-xl text-xs">저장 후 불러오기</button>
+
+      <div class="pt-3 border-t border-zinc-800 space-y-2.5 text-xs">
+        <p class="font-extrabold text-emerald-400">💾 내 기록 백업 / 복원 (찜 · 구독 · 플리 · 이어보기)</p>
+        <button onclick="copyBackupData()" class="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-extrabold py-2.5 rounded-xl">
+          📋 현재 기록 백업 코드 복사하기
+        </button>
+        <textarea id="restore-data-input" rows="3" placeholder="백업해 둔 JSON 코드를 여기에 붙여넣고 복원을 누르세요..." class="w-full bg-zinc-950 border border-zinc-700 rounded-xl p-2.5 text-[11px] font-mono text-zinc-200 outline-none"></textarea>
+        <button onclick="restoreBackupData()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 rounded-xl">
+          📥 백업 코드로 데이터 복원하기
+        </button>
+      </div>
     </div>
   </div>
 
@@ -321,44 +385,49 @@
       { label: '🌳 야외', value: 'public' }
     ];
 
-    const SORT_LABELS = {
-      rel: '🎯 정확도순',
-      mv: '🔥 인기순',
-      cm: '🆕 최신순',
-      tr: '⭐ 최고평점',
-      ht: '⚡ 급상승'
-    };
-
-    const PERIOD_LABELS = {
-      t: '오늘',
-      w: '이번 주',
-      m: '이번 달',
-      a: '전체'
-    };
+    const SORT_LABELS = { rel: '🎯 정확도순', mv: '🔥 인기순', cm: '🆕 최신순', tr: '⭐ 최고평점', ht: '⚡ 급상승' };
+    const PERIOD_LABELS = { t: '오늘', w: '이번 주', m: '이번 달', a: '전체' };
 
     let workerUrl = localStorage.getItem('cleanhub_worker_url') || '';
     let savedPlaylists = JSON.parse(localStorage.getItem('cleanhub_saved_playlists') || '[]');
+    let subscribedChannels = JSON.parse(localStorage.getItem('cleanhub_subs') || '[]');
     let favorites = JSON.parse(localStorage.getItem('cleanhub_favorites') || '[]');
     let watchHistory = JSON.parse(localStorage.getItem('cleanhub_history') || '[]');
+    let watchProgress = JSON.parse(localStorage.getItem('cleanhub_progress') || '{}');
     let autoPreviewEnabled = localStorage.getItem('cleanhub_autopreview') !== 'false';
 
     let currentTab = 'explore';
     let currentQuery = '';
     let currentSort = 'mv';
     let currentPeriod = 'w';
+    let currentDuration = 'all';
+    let hdOnly = false;
     let currentGenre = { label: '전체', value: '' };
     let currentChannel = { name: '', path: '' };
     let currentPage = 1;
+    let isLoadingList = false;
+    let hasMoreItems = true;
     let lastItemsMap = {};
 
     let hls = null;
     let currentStreams = [];
     let currentVideoMeta = null;
+    let pendingResumeApplied = false;
     let cachedAllCategories = null;
     let activePreviewContainer = null;
     let scrollObserver = null;
+    let infiniteObserver = null;
     let previewDelayTimer = null;
 
+    // Shorties 상태
+    let shortiesItems = [];
+    let shortiesPage = 1;
+    let shortiesLoading = false;
+    let shortiesMuted = true;
+    let shortiesObserver = null;
+    const shortiesHlsMap = new Map();
+
+    // 백그라운드 다운로드 대기열
     const downloadQueue = [];
     let activeDownloadTask = null;
 
@@ -374,13 +443,20 @@
       t.textContent = msg;
       t.classList.remove('hidden');
       clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2600);
+      window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2500);
     }
 
     function escapeHtml(str) {
       return String(str || '').replace(/[&<>"']/g, m => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
       }[m]));
+    }
+
+    function formatTime(sec) {
+      sec = Math.max(0, Math.floor(sec || 0));
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
     }
 
     function proxyUrl(target, extra = '') {
@@ -419,8 +495,10 @@
       }
     }
 
+    // ==================== 설정 & 데이터 백업/복원 ====================
     function openSettings() {
       document.getElementById('worker-url-input').value = workerUrl;
+      document.getElementById('restore-data-input').value = '';
       document.getElementById('settings-modal').classList.remove('hidden');
     }
 
@@ -438,21 +516,166 @@
       localStorage.setItem('cleanhub_worker_url', workerUrl);
       closeSettings();
       document.getElementById('setup-banner').classList.add('hidden');
-      loadList();
+      loadList(false);
       showToast('서버 주소가 저장되었습니다.');
     }
 
+    function copyBackupData() {
+      const payload = {
+        version: '2.4',
+        workerUrl,
+        favorites,
+        savedPlaylists,
+        subscribedChannels,
+        watchHistory,
+        watchProgress
+      };
+      const jsonStr = JSON.stringify(payload);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(jsonStr)
+          .then(() => showToast('백업 코드가 클립보드에 복사되었습니다!'))
+          .catch(() => {
+            document.getElementById('restore-data-input').value = jsonStr;
+            showToast('아래 입력창에 백업 코드를 띄웠습니다. 복사해 두세요.');
+          });
+      } else {
+        document.getElementById('restore-data-input').value = jsonStr;
+        showToast('아래 입력창의 텍스트를 전체 복사해 두세요.');
+      }
+    }
+
+    function restoreBackupData() {
+      const raw = document.getElementById('restore-data-input').value.trim();
+      if (!raw) {
+        showToast('복원할 백업 코드를 입력창에 붙여넣어 주세요.');
+        return;
+      }
+      try {
+        const data = JSON.parse(raw);
+        if (data.workerUrl) { workerUrl = data.workerUrl; localStorage.setItem('cleanhub_worker_url', workerUrl); }
+        if (Array.isArray(data.favorites)) { favorites = data.favorites; localStorage.setItem('cleanhub_favorites', JSON.stringify(favorites)); }
+        if (Array.isArray(data.savedPlaylists)) { savedPlaylists = data.savedPlaylists; localStorage.setItem('cleanhub_saved_playlists', JSON.stringify(savedPlaylists)); }
+        if (Array.isArray(data.subscribedChannels)) { subscribedChannels = data.subscribedChannels; localStorage.setItem('cleanhub_subs', JSON.stringify(subscribedChannels)); }
+        if (Array.isArray(data.watchHistory)) { watchHistory = data.watchHistory; localStorage.setItem('cleanhub_history', JSON.stringify(watchHistory)); }
+        if (data.watchProgress && typeof data.watchProgress === 'object') { watchProgress = data.watchProgress; localStorage.setItem('cleanhub_progress', JSON.stringify(watchProgress)); }
+
+        updateFavBadge();
+        renderQuickSubs();
+        closeSettings();
+        if (currentTab === 'playlists') renderPlaylistsTab();
+        else if (currentTab === 'favorites') renderFavorites();
+        else if (currentTab === 'history') renderHistory();
+        else loadList(false);
+        showToast('✅ 모든 기록이 복원되었습니다!');
+      } catch (e) {
+        showToast('잘못된 백업 코드 형식입니다.');
+      }
+    }
+
+    // ==================== 채널 구독 ====================
+    function isChannelSubbed(path) {
+      return Boolean(path && subscribedChannels.some(c => c.path === path));
+    }
+
+    function toggleChannelSub(name, path) {
+      if (!path) {
+        showToast('채널 고유 주소가 없는 영상입니다.');
+        return;
+      }
+      const idx = subscribedChannels.findIndex(c => c.path === path);
+      if (idx >= 0) {
+        subscribedChannels.splice(idx, 1);
+        showToast(`구독 취소: ${name}`);
+      } else {
+        subscribedChannels.unshift({ name: name || path, path });
+        showToast(`⭐ 채널 구독 완료: ${name}`);
+      }
+      localStorage.setItem('cleanhub_subs', JSON.stringify(subscribedChannels));
+      renderQuickSubs();
+      updateSubButtons();
+      if (currentTab === 'playlists') renderSubsList();
+    }
+
+    function toggleActiveChannelSub() {
+      if (currentChannel.path) toggleChannelSub(currentChannel.name, currentChannel.path);
+    }
+
+    function togglePlayerChannelSub() {
+      if (currentVideoMeta && currentVideoMeta.channelUrl) {
+        toggleChannelSub(currentVideoMeta.channel, currentVideoMeta.channelUrl);
+      }
+    }
+
+    function updateSubButtons() {
+      const actBtn = document.getElementById('active-channel-sub-btn');
+      if (currentChannel.path) {
+        const sub = isChannelSubbed(currentChannel.path);
+        actBtn.textContent = sub ? '✅ 구독 중' : '⭐ 구독';
+        actBtn.className = sub
+          ? 'text-[11px] bg-emerald-600 text-white font-extrabold px-2.5 py-1 rounded-lg'
+          : 'text-[11px] bg-amber-500 text-black font-extrabold px-2.5 py-1 rounded-lg';
+      }
+      const plBtn = document.getElementById('player-sub-btn');
+      if (currentVideoMeta && currentVideoMeta.channelUrl) {
+        plBtn.classList.remove('hidden');
+        const sub = isChannelSubbed(currentVideoMeta.channelUrl);
+        plBtn.textContent = sub ? '✅ 구독 중' : '⭐ 구독';
+        plBtn.className = sub
+          ? 'text-[11px] font-extrabold bg-emerald-600 text-white px-2.5 py-1 rounded-full'
+          : 'text-[11px] font-extrabold bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-full';
+      } else {
+        plBtn.classList.add('hidden');
+      }
+    }
+
+    function renderQuickSubs() {
+      const wrap = document.getElementById('quick-subs-wrap');
+      const bar = document.getElementById('quick-subs-bar');
+      if (subscribedChannels.length === 0) {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      bar.innerHTML = `<span class="text-[10px] font-extrabold text-amber-400 shrink-0 pr-0.5">⭐ 구독</span>` + subscribedChannels.map(c => {
+        const active = currentChannel.path === c.path;
+        return `
+          <button onclick="openChannel('${encodeURIComponent(c.name)}', '${encodeURIComponent(c.path)}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 transition ${active ? 'bg-amber-500 text-black' : 'bg-zinc-900 border border-zinc-800 text-zinc-200'}">
+            ${escapeHtml(c.name)}
+          </button>`;
+      }).join('');
+    }
+
+    function renderSubsList() {
+      const box = document.getElementById('subs-list-wrap');
+      if (subscribedChannels.length === 0) {
+        box.innerHTML = `<div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-center text-xs text-zinc-500">구독 중인 채널이 없습니다. 마음에 드는 채널에서 [⭐ 구독]을 눌러보세요.</div>`;
+        return;
+      }
+      box.innerHTML = subscribedChannels.map(c => `
+        <div class="bg-zinc-900 border border-zinc-800 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2">
+          <button onclick="openChannel('${encodeURIComponent(c.name)}', '${encodeURIComponent(c.path)}')" class="flex items-center space-x-2 min-w-0 flex-1 text-left">
+            <span class="text-sm">📺</span>
+            <span class="text-xs font-extrabold text-zinc-100 truncate">${escapeHtml(c.name)}</span>
+          </button>
+          <button onclick="toggleChannelSub('${c.name.replace(/'/g, "\\'")}', '${c.path.replace(/'/g, "\\'")}')" class="text-[11px] text-zinc-400 hover:text-rose-400 font-bold shrink-0 px-2 py-1">구독취소</button>
+        </div>
+      `).join('');
+    }
+
+    // ==================== 홈/채널/탭 전환 ====================
     function resetHome() {
       currentQuery = '';
       currentChannel = { name: '', path: '' };
       currentGenre = { label: '전체', value: '' };
       currentSort = 'mv';
       currentPeriod = 'w';
+      currentDuration = 'all';
+      hdOnly = false;
       currentPage = 1;
       document.getElementById('search-input').value = '';
       switchTab('explore');
       renderFilterBars();
-      loadList();
+      loadList(false);
     }
 
     function openChannel(encName, encPath) {
@@ -476,7 +699,8 @@
         document.getElementById('search-input').value = name;
       }
       renderFilterBars();
-      loadList();
+      renderQuickSubs();
+      loadList(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -485,7 +709,8 @@
       currentSort = 'mv';
       currentPage = 1;
       renderFilterBars();
-      loadList();
+      renderQuickSubs();
+      loadList(false);
     }
 
     function openFromPlayerChannel() {
@@ -498,18 +723,20 @@
 
     function switchTab(tab) {
       stopAllPreviews();
+      if (currentTab === 'shorties' && tab !== 'shorties') pauseAllShorties();
       currentTab = tab;
-      ['explore', 'playlists', 'favorites', 'history'].forEach(t => {
+      ['explore', 'shorties', 'playlists', 'favorites', 'history'].forEach(t => {
         document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tab);
         document.getElementById(`nav-${t}`).className =
           t === tab
             ? 'flex flex-col items-center text-amber-400 relative'
             : 'flex flex-col items-center text-zinc-500 relative';
       });
-      if (tab === 'playlists') renderSavedPlaylists();
+      if (tab === 'shorties') initShortiesTab();
+      if (tab === 'playlists') renderPlaylistsTab();
       if (tab === 'favorites') renderFavorites();
       if (tab === 'history') renderHistory();
-      observeVisibleThumbs();
+      if (tab !== 'shorties') observeVisibleThumbs();
     }
 
     function updateFavBadge() {
@@ -522,20 +749,20 @@
       }
     }
 
+    // ==================== 필터 바 렌더링 ====================
     function renderFilterBars() {
       const isSearchMode = Boolean(currentQuery);
       const isChannelMode = Boolean(currentChannel.path);
 
-      // 채널 배너 표시 여부
       const chBar = document.getElementById('active-channel-bar');
       if (isChannelMode) {
         chBar.classList.remove('hidden');
         document.getElementById('active-channel-label').textContent = `채널: ${currentChannel.name}`;
+        updateSubButtons();
       } else {
         chBar.classList.add('hidden');
       }
 
-      // 정확도순 버튼은 검색 모드일 때만 표시
       const relBtn = document.getElementById('sort-rel-btn');
       relBtn.classList.toggle('hidden', !isSearchMode);
       if (!isSearchMode && currentSort === 'rel') currentSort = 'mv';
@@ -548,7 +775,6 @@
           : 'sort-btn px-3 py-2 rounded-xl text-xs font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800');
       });
 
-      // 기간 선택 버튼 상태 (채널 전용 페이지나 급상승/최신순에서는 비활성 느낌 또는 숨김)
       const showPeriod = !isChannelMode && (isSearchMode || currentSort === 'mv' || currentSort === 'tr');
       document.getElementById('period-bar').classList.toggle('hidden', !showPeriod);
       document.querySelectorAll('.period-btn').forEach(btn => {
@@ -558,22 +784,25 @@
           : 'period-btn flex-1 py-1.5 rounded-lg text-[11px] font-extrabold bg-zinc-900 text-zinc-400 border border-zinc-800';
       });
 
+      document.getElementById('detail-filter-bar').classList.toggle('hidden', isChannelMode);
+      document.querySelectorAll('.dur-btn').forEach(btn => {
+        const active = btn.dataset.dur === currentDuration;
+        btn.className = active
+          ? 'dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-sky-500/20 text-sky-300 border border-sky-500/40'
+          : 'dur-btn px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800';
+      });
+      const hdBtn = document.getElementById('hd-only-btn');
+      hdBtn.className = hdOnly
+        ? 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-amber-500 text-black'
+        : 'px-2.5 py-1 rounded-lg text-[11px] font-extrabold shrink-0 bg-zinc-900 text-zinc-400 border border-zinc-800';
+
       renderGenreBar();
     }
 
-    function setSort(sortCode) {
-      currentSort = sortCode;
-      currentPage = 1;
-      renderFilterBars();
-      loadList();
-    }
-
-    function setPeriod(periodCode) {
-      currentPeriod = periodCode;
-      currentPage = 1;
-      renderFilterBars();
-      loadList();
-    }
+    function setSort(sortCode) { currentSort = sortCode; renderFilterBars(); loadList(false); }
+    function setPeriod(periodCode) { currentPeriod = periodCode; renderFilterBars(); loadList(false); }
+    function setDurationFilter(dur) { currentDuration = dur; renderFilterBars(); loadList(false); }
+    function toggleHdOnly() { hdOnly = !hdOnly; renderFilterBars(); loadList(false); }
 
     function renderGenreBar() {
       const bar = document.getElementById('genre-bar');
@@ -602,9 +831,9 @@
       if (currentSort === 'rel') currentSort = 'mv';
       document.getElementById('search-input').value = '';
       currentGenre = { label, value };
-      currentPage = 1;
       renderFilterBars();
-      loadList();
+      renderQuickSubs();
+      loadList(false);
     }
 
     async function openAllGenresModal() {
@@ -613,10 +842,7 @@
       const box = document.getElementById('all-genres-box');
       modal.classList.remove('hidden');
 
-      if (cachedAllCategories) {
-        renderAllCategories(cachedAllCategories);
-        return;
-      }
+      if (cachedAllCategories) { renderAllCategories(cachedAllCategories); return; }
 
       box.innerHTML = `<div class="col-span-2 py-8 text-center text-xs text-zinc-400">사이트의 전체 장르 목록을 불러오는 중...</div>`;
       try {
@@ -643,10 +869,9 @@
       `).join('');
     }
 
-    function closeGenreModal() {
-      document.getElementById('genre-modal').classList.add('hidden');
-    }
+    function closeGenreModal() { document.getElementById('genre-modal').classList.add('hidden'); }
 
+    // ==================== 미리보기 자동재생 ====================
     function startPreview(containerEl, encodedPreview) {
       const previewUrl = decodeURIComponent(encodedPreview || '');
       if (!previewUrl) return;
@@ -678,12 +903,7 @@
     function stopPreview(containerEl) {
       if (!containerEl) return;
       const vid = containerEl.querySelector('video.preview-vid');
-      if (vid) {
-        vid.pause();
-        vid.removeAttribute('src');
-        vid.load();
-        vid.remove();
-      }
+      if (vid) { vid.pause(); vid.removeAttribute('src'); vid.load(); vid.remove(); }
       const badge = containerEl.querySelector('.preview-badge');
       if (badge) badge.remove();
       if (activePreviewContainer === containerEl) activePreviewContainer = null;
@@ -697,18 +917,12 @@
     function toggleMobilePreview(e, btnEl, encodedPreview) {
       e.stopPropagation();
       const containerEl = btnEl.closest('.thumb-wrap');
-      if (containerEl.querySelector('video.preview-vid')) {
-        stopPreview(containerEl);
-      } else {
-        startPreview(containerEl, encodedPreview);
-      }
+      if (containerEl.querySelector('video.preview-vid')) stopPreview(containerEl);
+      else startPreview(containerEl, encodedPreview);
     }
 
     function observeVisibleThumbs() {
-      if (scrollObserver) {
-        scrollObserver.disconnect();
-        scrollObserver = null;
-      }
+      if (scrollObserver) { scrollObserver.disconnect(); scrollObserver = null; }
       if (!autoPreviewEnabled) return;
 
       const activeSection = document.getElementById(`view-${currentTab}`);
@@ -717,20 +931,12 @@
       if (targets.length === 0) return;
 
       scrollObserver = new IntersectionObserver((entries) => {
-        if (!autoPreviewEnabled) return;
-        if (!document.getElementById('player-modal').classList.contains('hidden')) return;
-
+        if (!autoPreviewEnabled || !document.getElementById('player-modal').classList.contains('hidden')) return;
         let bestEntry = null;
         for (const entry of entries) {
-          if (!entry.isIntersecting && entry.target === activePreviewContainer) {
-            stopPreview(entry.target);
-          } else if (entry.isIntersecting) {
-            if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
-              bestEntry = entry;
-            }
-          }
+          if (!entry.isIntersecting && entry.target === activePreviewContainer) stopPreview(entry.target);
+          else if (entry.isIntersecting && (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio)) bestEntry = entry;
         }
-
         if (bestEntry && bestEntry.target !== activePreviewContainer) {
           clearTimeout(previewDelayTimer);
           const el = bestEntry.target;
@@ -741,18 +947,13 @@
             }
           }, 350);
         }
-      }, {
-        root: null,
-        rootMargin: '-22% 0px -22% 0px',
-        threshold: [0.45, 0.75]
-      });
+      }, { root: null, rootMargin: '-22% 0px -22% 0px', threshold: [0.45, 0.75] });
 
       targets.forEach(t => scrollObserver.observe(t));
     }
 
-    function isFav(vkey) {
-      return favorites.some(f => f.vkey === vkey);
-    }
+    // ==================== 카드 렌더링 (이어보기 진행바 포함) ====================
+    function isFav(vkey) { return favorites.some(f => f.vkey === vkey); }
 
     function buildVideoCardHtml(item) {
       const faved = isFav(item.vkey);
@@ -761,6 +962,8 @@
       const primaryThumb = item.thumbHd || item.thumb || '';
       const encChName = encodeURIComponent(item.channel || '');
       const encChPath = encodeURIComponent(item.channelUrl || '');
+      const prog = watchProgress[item.vkey];
+      const progPct = (prog && prog.duration > 10) ? Math.min(100, Math.round((prog.time / prog.duration) * 100)) : 0;
 
       return `
         <article class="bg-zinc-900 border-y border-zinc-800 sm:border sm:rounded-2xl overflow-hidden shadow-md">
@@ -792,6 +995,7 @@
               </button>
             ` : ''}
             ${item.duration ? `<span class="absolute bottom-2.5 right-2.5 z-20 bg-black/85 text-xs font-extrabold text-white px-2 py-0.5 rounded-md">${escapeHtml(item.duration)}</span>` : ''}
+            ${progPct > 3 ? `<div class="absolute bottom-0 left-0 right-0 h-1 bg-zinc-800 z-20"><div class="h-full bg-amber-500" style="width:${progPct}%"></div></div>` : ''}
           </div>
           <div class="px-4 py-3 flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0 space-y-1.5">
@@ -802,9 +1006,7 @@
                     <span>📺</span>
                     <span class="truncate">${escapeHtml(item.channel)}</span>
                   </button>
-                ` : `
-                  <span class="text-[11px] text-zinc-500 font-bold">📺 일반 업로더</span>
-                `}
+                ` : `<span class="text-[11px] text-zinc-500 font-bold">📺 일반 업로더</span>`}
               </div>
             </div>
             <button onclick="toggleFavoriteByVkey('${item.vkey}')" class="shrink-0 w-9 h-9 rounded-xl bg-zinc-800/90 flex items-center justify-center text-base active:scale-90 transition" title="찜하기">
@@ -814,36 +1016,36 @@
         </article>`;
     }
 
-    async function loadList() {
-      if (!workerUrl) {
-        document.getElementById('setup-banner').classList.remove('hidden');
-        return;
-      }
-      stopAllPreviews();
-      const loading = document.getElementById('loading-el');
-      const grid = document.getElementById('video-grid');
-      const bottomPager = document.getElementById('bottom-pager');
-      const chWrap = document.getElementById('matched-channels-wrap');
-      const chBar = document.getElementById('matched-channels-bar');
+    // ==================== 무한 스크롤 목록 불러오기 ====================
+    async function loadList(append = false) {
+      if (!workerUrl) { document.getElementById('setup-banner').classList.remove('hidden'); return; }
+      if (isLoadingList) return;
+      if (append && !hasMoreItems) return;
 
+      isLoadingList = true;
+      if (!append) {
+        stopAllPreviews();
+        currentPage = 1;
+        hasMoreItems = true;
+        document.getElementById('video-grid').innerHTML = '';
+        document.getElementById('matched-channels-wrap').classList.add('hidden');
+      } else {
+        currentPage += 1;
+      }
+
+      const loading = document.getElementById('loading-el');
+      const manualBtn = document.getElementById('manual-more-btn');
       loading.classList.remove('hidden');
-      bottomPager.classList.add('hidden');
-      chWrap.classList.add('hidden');
-      document.getElementById('loading-msg').textContent = currentQuery ? `"${currentQuery}" 검색 중...` : '목록을 불러오는 중...';
+      manualBtn.classList.add('hidden');
+      document.getElementById('loading-msg').textContent = append ? `${currentPage}페이지 더 불러오는 중...` : (currentQuery ? `"${currentQuery}" 검색 중...` : '목록을 불러오는 중...');
       document.getElementById('page-num').textContent = `${currentPage}P`;
-      document.getElementById('page-num-bottom').textContent = `${currentPage}P`;
 
       const sortText = SORT_LABELS[currentSort] || '인기순';
       const periodText = PERIOD_LABELS[currentPeriod] || '이번 주';
-      if (currentChannel.path) {
-        document.getElementById('list-heading').textContent = `📺 ${currentChannel.name} · ${sortText}`;
-      } else if (currentQuery) {
-        document.getElementById('list-heading').textContent = `🔎 "${currentQuery}" · ${sortText} (${periodText})`;
-      } else if (currentGenre.value) {
-        document.getElementById('list-heading').textContent = `${currentGenre.label} · ${sortText} (${periodText})`;
-      } else {
-        document.getElementById('list-heading').textContent = `전체 동영상 · ${sortText} (${periodText})`;
-      }
+      if (currentChannel.path) document.getElementById('list-heading').textContent = `📺 ${currentChannel.name} · ${sortText}`;
+      else if (currentQuery) document.getElementById('list-heading').textContent = `🔎 "${currentQuery}" · ${sortText} (${periodText})`;
+      else if (currentGenre.value) document.getElementById('list-heading').textContent = `${currentGenre.label} · ${sortText} (${periodText})`;
+      else document.getElementById('list-heading').textContent = `전체 동영상 · ${sortText} (${periodText})`;
 
       try {
         const params = new URLSearchParams({
@@ -854,12 +1056,18 @@
           channel: currentChannel.path,
           page: String(currentPage)
         });
+        if (currentDuration === 'short') params.set('max_d', '10');
+        else if (currentDuration === 'mid') { params.set('min_d', '10'); params.set('max_d', '30'); }
+        else if (currentDuration === 'long') params.set('min_d', '30');
+        if (hdOnly) params.set('hd', '1');
+
         const res = await fetch(`${workerUrl}/api/list?${params.toString()}`);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        // 검색 결과에 일치하는 채널/모델이 있으면 상단에 표시
-        if (data.channels && data.channels.length > 0 && currentQuery && !currentChannel.path) {
+        if (!append && data.channels && data.channels.length > 0 && currentQuery && !currentChannel.path) {
+          const chWrap = document.getElementById('matched-channels-wrap');
+          const chBar = document.getElementById('matched-channels-bar');
           chWrap.classList.remove('hidden');
           chBar.innerHTML = data.channels.map(c => `
             <button onclick="openChannel('${encodeURIComponent(c.name)}', '${encodeURIComponent(c.path)}')" class="px-3 py-1.5 rounded-full text-xs font-extrabold shrink-0 bg-amber-500/20 border border-amber-500/40 text-amber-300 active:scale-95 transition">
@@ -868,33 +1076,58 @@
           `).join('');
         }
 
+        const grid = document.getElementById('video-grid');
         if (!data.items || data.items.length === 0) {
-          grid.innerHTML = `<div class="text-center text-xs text-zinc-500 py-10">조건에 맞는 영상이 없습니다.<br>기간을 [전체]로 바꾸거나 다른 검색어를 입력해 보세요.</div>`;
+          hasMoreItems = false;
+          if (!append) {
+            grid.innerHTML = `<div class="text-center text-xs text-zinc-500 py-10">조건에 맞는 영상이 없습니다.<br>기간이나 길이 필터를 [전체]로 바꿔보세요.</div>`;
+          }
         } else {
           data.items.forEach(it => { lastItemsMap[it.vkey] = it; });
-          grid.innerHTML = data.items.map(buildVideoCardHtml).join('');
-          bottomPager.classList.remove('hidden');
+          const htmlChunk = data.items.map(buildVideoCardHtml).join('');
+          if (append) grid.insertAdjacentHTML('beforeend', htmlChunk);
+          else grid.innerHTML = htmlChunk;
+          if (data.items.length < 6) hasMoreItems = false;
+          else manualBtn.classList.remove('hidden');
           observeVisibleThumbs();
         }
       } catch (e) {
-        grid.innerHTML = `<div class="mx-3 bg-rose-950/60 border border-rose-800 rounded-xl p-4 text-xs text-rose-200">불러오기 실패: ${e.message}</div>`;
+        if (!append) {
+          document.getElementById('video-grid').innerHTML = `<div class="mx-3 bg-rose-950/60 border border-rose-800 rounded-xl p-4 text-xs text-rose-200">불러오기 실패: ${e.message}</div>`;
+        } else {
+          showToast(`추가 로드 실패: ${e.message}`);
+        }
       } finally {
+        isLoadingList = false;
         loading.classList.add('hidden');
       }
+    }
+
+    function loadMore() {
+      if (currentTab === 'explore' && hasMoreItems && !isLoadingList) loadList(true);
+    }
+
+    function setupInfiniteScroll() {
+      const sentinel = document.getElementById('scroll-sentinel');
+      if (!sentinel) return;
+      infiniteObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && currentTab === 'explore' && hasMoreItems && !isLoadingList && workerUrl) {
+          if (document.getElementById('video-grid').children.length > 0) loadList(true);
+        }
+      }, { rootMargin: '300px' });
+      infiniteObserver.observe(sentinel);
     }
 
     function handleSearch(e) {
       e.preventDefault();
       const val = document.getElementById('search-input').value.trim();
       if (/viewkey=([a-zA-Z0-9_-]+)/i.test(val)) {
-        const vkey = val.match(/viewkey=([a-zA-Z0-9_-]+)/i)[1];
-        openVideo(vkey);
+        openVideo(val.match(/viewkey=([a-zA-Z0-9_-]+)/i)[1]);
         return;
       }
       if (/\/playlist\/(\d+)/i.test(val)) {
-        const plId = val.match(/\/playlist\/(\d+)/i)[1];
         switchTab('playlists');
-        openPlaylistDetail(plId, true);
+        openPlaylistDetail(val.match(/\/playlist\/(\d+)/i)[1], true);
         return;
       }
       if (/pornhub\.com(\/(?:channels|model|pornstar|users)\/[^"?#]+)/i.test(val)) {
@@ -907,18 +1140,211 @@
       currentQuery = val;
       currentSort = val ? 'rel' : 'mv';
       if (val) currentPeriod = 'a';
-      currentPage = 1;
       renderFilterBars();
-      loadList();
+      renderQuickSubs();
+      loadList(false);
     }
 
-    function changePage(delta) {
-      currentPage = Math.max(1, currentPage + delta);
-      loadList();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    // ==================== ⚡ 쇼츠 (Shorties 세로 피드) ====================
+    function initShortiesTab() {
+      if (!workerUrl) { openSettings(); return; }
+      if (shortiesItems.length === 0) loadShorties(false);
+      else observeShortiesSlides();
     }
 
-    // ==================== 플레이리스트 북마크 (쿠키 불필요) ====================
+    async function loadShorties(append = false) {
+      if (shortiesLoading || !workerUrl) return;
+      shortiesLoading = true;
+      const box = document.getElementById('shorties-container');
+      if (!append) {
+        shortiesPage = 1;
+        shortiesItems = [];
+        box.innerHTML = `<div class="h-full flex flex-col items-center justify-center space-y-2 text-zinc-400 text-xs"><div class="w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div><p>⚡ Shorties 피드 불러오는 중...</p></div>`;
+      } else {
+        shortiesPage += 1;
+      }
+
+      try {
+        const res = await fetch(`${workerUrl}/api/shorties?page=${shortiesPage}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const list = data.items || [];
+        if (list.length === 0 && !append) {
+          box.innerHTML = `<div class="h-full flex items-center justify-center text-xs text-zinc-500">불러올 쇼츠가 없습니다.</div>`;
+          return;
+        }
+        const startIdx = shortiesItems.length;
+        shortiesItems.push(...list);
+        const slidesHtml = list.map((item, i) => buildShortySlideHtml(item, startIdx + i)).join('');
+        if (!append) box.innerHTML = slidesHtml;
+        else box.insertAdjacentHTML('beforeend', slidesHtml);
+        observeShortiesSlides();
+      } catch (e) {
+        if (!append) box.innerHTML = `<div class="h-full flex items-center justify-center p-6 text-xs text-rose-300">쇼츠 로드 오류: ${e.message}</div>`;
+      } finally {
+        shortiesLoading = false;
+      }
+    }
+
+    function buildShortySlideHtml(item, idx) {
+      const faved = item.vkey && isFav(item.vkey);
+      return `
+        <div class="shorty-slide h-full w-full snap-start relative bg-black flex items-center justify-center overflow-hidden" data-idx="${idx}">
+          <video
+            class="shorty-video w-full h-full object-contain bg-black"
+            playsinline
+            loop
+            ${shortiesMuted ? 'muted' : ''}
+            poster="${proxyUrl(item.thumb)}"
+            onclick="toggleShortyPlay(this)"
+          ></video>
+
+          <!-- 우측 액션 바 -->
+          <div class="absolute right-3 bottom-16 z-20 flex flex-col items-center space-y-4">
+            <button onclick="toggleShortiesMute()" class="shorty-mute-btn w-11 h-11 rounded-full bg-black/60 backdrop-blur border border-white/15 flex items-center justify-center text-lg active:scale-90">
+              ${shortiesMuted ? '🔇' : '🔊'}
+            </button>
+            ${item.vkey ? `
+              <button onclick="toggleShortyFav(${idx}, this)" class="w-11 h-11 rounded-full bg-black/60 backdrop-blur border border-white/15 flex items-center justify-center text-lg active:scale-90">
+                ${faved ? '❤️' : '🤍'}
+              </button>
+            ` : ''}
+            <button onclick="downloadShorty(${idx})" class="w-11 h-11 rounded-full bg-black/60 backdrop-blur border border-white/15 flex items-center justify-center text-lg active:scale-90">
+              📥
+            </button>
+            ${item.vkey ? `
+              <button onclick="openVideoFromShorty('${item.vkey}')" class="px-2.5 py-2 rounded-xl bg-amber-500 text-black text-[10px] font-black shadow-lg active:scale-95 text-center leading-tight">
+                🎬<br>풀영상
+              </button>
+            ` : ''}
+          </div>
+
+          <!-- 하단 제목 & 채널 오버레이 -->
+          <div class="absolute left-0 right-16 bottom-0 z-10 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
+            <div class="pointer-events-auto space-y-1">
+              <div class="flex items-center space-x-1.5">
+                <span class="bg-amber-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded">${item.isShorty ? 'SHORTIES' : 'CLIP'}</span>
+                ${item.channel ? `<button onclick="openChannelFromShorty(${idx})" class="text-xs font-extrabold text-amber-300 truncate max-w-[200px]">📺 ${escapeHtml(item.channel)}</button>` : ''}
+              </div>
+              <p class="text-sm font-bold text-white line-clamp-2 leading-snug drop-shadow">${escapeHtml(item.title)}</p>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function observeShortiesSlides() {
+      if (shortiesObserver) { shortiesObserver.disconnect(); shortiesObserver = null; }
+      const container = document.getElementById('shorties-container');
+      const slides = container.querySelectorAll('.shorty-slide');
+      if (slides.length === 0) return;
+
+      shortiesObserver = new IntersectionObserver((entries) => {
+        if (currentTab !== 'shorties') return;
+        entries.forEach(entry => {
+          const idx = parseInt(entry.target.dataset.idx, 10);
+          const video = entry.target.querySelector('video.shorty-video');
+          const item = shortiesItems[idx];
+          if (!video || !item) return;
+
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            playShortyVideo(video, item, idx);
+            if (idx >= shortiesItems.length - 2) loadShorties(true);
+          } else {
+            video.pause();
+          }
+        });
+      }, { root: container, threshold: [0.6] });
+
+      slides.forEach(s => shortiesObserver.observe(s));
+    }
+
+    function playShortyVideo(video, item, idx) {
+      video.muted = shortiesMuted;
+      if (!video.dataset.loaded) {
+        video.dataset.loaded = '1';
+        const src = proxyUrl(item.videoUrl);
+        if (item.format === 'hls' || item.videoUrl.includes('.m3u8')) {
+          if (Hls.isSupported()) {
+            const h = new Hls();
+            h.loadSource(src);
+            h.attachMedia(video);
+            h.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            shortiesHlsMap.set(idx, h);
+          } else {
+            video.src = src;
+            video.play().catch(() => {});
+          }
+        } else {
+          video.src = src;
+          video.play().catch(() => {});
+        }
+      } else {
+        video.play().catch(() => {});
+      }
+    }
+
+    function pauseAllShorties() {
+      document.querySelectorAll('#shorties-container video.shorty-video').forEach(v => v.pause());
+    }
+
+    function toggleShortyPlay(video) {
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    }
+
+    function toggleShortiesMute() {
+      shortiesMuted = !shortiesMuted;
+      document.querySelectorAll('#shorties-container video.shorty-video').forEach(v => { v.muted = shortiesMuted; });
+      document.querySelectorAll('.shorty-mute-btn').forEach(b => { b.textContent = shortiesMuted ? '🔇' : '🔊'; });
+      showToast(shortiesMuted ? '🔇 음소거됨' : '🔊 소리 켜짐');
+    }
+
+    function toggleShortyFav(idx, btn) {
+      const item = shortiesItems[idx];
+      if (!item || !item.vkey) return;
+      lastItemsMap[item.vkey] = {
+        vkey: item.vkey, title: item.title, thumb: item.thumb, thumbHd: item.thumb,
+        preview: item.videoUrl, channel: item.channel, channelUrl: item.channelUrl, duration: item.duration || ''
+      };
+      toggleFavoriteByVkey(item.vkey);
+      btn.textContent = isFav(item.vkey) ? '❤️' : '🤍';
+    }
+
+    function openVideoFromShorty(vkey) {
+      pauseAllShorties();
+      openVideo(vkey);
+    }
+
+    function openChannelFromShorty(idx) {
+      const item = shortiesItems[idx];
+      if (!item) return;
+      pauseAllShorties();
+      openChannel(encodeURIComponent(item.channel || ''), encodeURIComponent(item.channelUrl || ''));
+    }
+
+    function downloadShorty(idx) {
+      const item = shortiesItems[idx];
+      if (!item || !item.videoUrl) return;
+      const safeTitle = (item.title || 'shorty').slice(0, 35).replace(/[^\w가-힣.-]/g, '_');
+      if (item.format !== 'hls' && !item.videoUrl.includes('.m3u8')) {
+        const a = document.createElement('a');
+        a.href = proxyUrl(item.videoUrl, `&dl=1&name=${encodeURIComponent(safeTitle)}`);
+        a.download = `${safeTitle}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('쇼츠 클립 다운로드를 시작했습니다!');
+      } else {
+        enqueueHlsDownload(item.title, safeTitle, item.videoUrl, false);
+      }
+    }
+
+    // ==================== 보관함 (구독 + 플레이리스트) ====================
+    function renderPlaylistsTab() {
+      renderSubsList();
+      renderSavedPlaylists();
+    }
+
     function renderSavedPlaylists() {
       const listWrap = document.getElementById('playlists-list-wrap');
       const detailWrap = document.getElementById('playlist-detail-wrap');
@@ -926,11 +1352,7 @@
       listWrap.classList.remove('hidden');
 
       if (savedPlaylists.length === 0) {
-        listWrap.innerHTML = `
-          <div class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-8 text-center text-xs text-zinc-500 space-y-1.5">
-            <p class="font-bold text-zinc-300">저장된 플레이리스트가 없습니다.</p>
-            <p>위 입력창에 플레이리스트 URL(/playlist/숫자)이나 번호를 입력하면 자동으로 북마크에 저장됩니다.</p>
-          </div>`;
+        listWrap.innerHTML = `<div class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 text-center text-xs text-zinc-500">저장된 플레이리스트가 없습니다.<br>위 입력창에 플레이리스트 URL(/playlist/숫자)을 넣어 저장하세요.</div>`;
         return;
       }
 
@@ -952,10 +1374,7 @@
       e.preventDefault();
       const val = document.getElementById('playlist-url-input').value.trim();
       const m = val.match(/(\d{4,})/);
-      if (!m) {
-        showToast('플레이리스트 주소(/playlist/숫자) 또는 숫자 ID를 입력해 주세요.');
-        return;
-      }
+      if (!m) { showToast('플레이리스트 주소(/playlist/숫자) 또는 숫자 ID를 입력해 주세요.'); return; }
       document.getElementById('playlist-url-input').value = '';
       openPlaylistDetail(m[1], true);
     }
@@ -994,7 +1413,7 @@
         }
 
         if (!data.items || data.items.length === 0) {
-          grid.innerHTML = `<div class="mx-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-xs text-zinc-500">이 플레이리스트에 표시할 영상이 없습니다 (비공개 상태일 수 있습니다).</div>`;
+          grid.innerHTML = `<div class="mx-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-8 text-center text-xs text-zinc-500">표시할 영상이 없습니다 (비공개 상태일 수 있습니다).</div>`;
         } else {
           data.items.forEach(it => { lastItemsMap[it.vkey] = it; });
           grid.innerHTML = data.items.map(buildVideoCardHtml).join('');
@@ -1005,12 +1424,9 @@
       }
     }
 
-    function backToPlaylists() {
-      stopAllPreviews();
-      renderSavedPlaylists();
-    }
+    function backToPlaylists() { stopAllPreviews(); renderSavedPlaylists(); }
 
-    // ==================== 즐겨찾기 & 최근 기록 ====================
+    // ==================== 찜 & 최근 기록 ====================
     function toggleFavoriteByVkey(vkey) {
       const idx = favorites.findIndex(f => f.vkey === vkey);
       if (idx >= 0) {
@@ -1022,14 +1438,8 @@
           || (currentVideoMeta && currentVideoMeta.vkey === vkey ? currentVideoMeta : null);
         if (!meta) return;
         favorites.unshift({
-          vkey: meta.vkey,
-          title: meta.title,
-          thumb: meta.thumb,
-          thumbHd: meta.thumbHd || meta.thumb,
-          preview: meta.preview || '',
-          channel: meta.channel || '',
-          channelUrl: meta.channelUrl || '',
-          duration: meta.duration || ''
+          vkey: meta.vkey, title: meta.title, thumb: meta.thumb, thumbHd: meta.thumbHd || meta.thumb,
+          preview: meta.preview || '', channel: meta.channel || '', channelUrl: meta.channelUrl || '', duration: meta.duration || ''
         });
         showToast('❤️ 찜한 영상에 저장했습니다!');
       }
@@ -1045,29 +1455,23 @@
       }
     }
 
-    function toggleCurrentFavorite() {
-      if (!currentVideoMeta) return;
-      toggleFavoriteByVkey(currentVideoMeta.vkey);
-    }
-
+    function toggleCurrentFavorite() { if (currentVideoMeta) toggleFavoriteByVkey(currentVideoMeta.vkey); }
     function updatePlayerFavButton() {
-      const btn = document.getElementById('player-fav-btn');
       if (!currentVideoMeta) return;
-      btn.textContent = isFav(currentVideoMeta.vkey) ? '❤️' : '🤍';
+      document.getElementById('player-fav-btn').textContent = isFav(currentVideoMeta.vkey) ? '❤️' : '🤍';
     }
 
     function renderFavorites() {
       const grid = document.getElementById('favorites-grid');
       if (favorites.length === 0) {
-        grid.innerHTML = `<div class="mx-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-10 text-center text-xs text-zinc-500">아직 찜한 영상이 없습니다.<br>마음에 드는 영상의 🤍 버튼을 눌러 저장해 보세요.</div>`;
+        grid.innerHTML = `<div class="mx-3 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-10 text-center text-xs text-zinc-500">아직 찜한 영상이 없습니다.</div>`;
         return;
       }
       grid.innerHTML = favorites.map(buildVideoCardHtml).join('');
     }
 
     function clearFavorites() {
-      if (favorites.length === 0) return;
-      if (!confirm('찜한 영상을 모두 삭제할까요?')) return;
+      if (favorites.length === 0 || !confirm('찜한 영상을 모두 삭제할까요?')) return;
       favorites = [];
       localStorage.setItem('cleanhub_favorites', '[]');
       updateFavBadge();
@@ -1091,17 +1495,139 @@
     }
 
     function clearHistory() {
-      if (watchHistory.length === 0) return;
-      if (!confirm('최근 본 영상 기록을 모두 지울까요?')) return;
+      if (watchHistory.length === 0 || !confirm('최근 본 영상 기록을 모두 지울까요?')) return;
       watchHistory = [];
       localStorage.setItem('cleanhub_history', '[]');
       renderHistory();
     }
 
-    // ==================== 팝업 플레이어 ====================
+    // ==================== 팝업 플레이어 + 이어보기 + 관련 추천 + 터치 제스처 ====================
+    function saveCurrentProgress() {
+      if (!currentVideoMeta || !currentVideoMeta.vkey) return;
+      const video = document.getElementById('video-el');
+      if (!video || !video.duration || isNaN(video.duration) || video.duration < 15) return;
+      watchProgress[currentVideoMeta.vkey] = {
+        time: Math.floor(video.currentTime),
+        duration: Math.floor(video.duration),
+        updated: Date.now()
+      };
+      const keys = Object.keys(watchProgress);
+      if (keys.length > 100) {
+        keys.sort((a, b) => (watchProgress[b].updated || 0) - (watchProgress[a].updated || 0));
+        keys.slice(100).forEach(k => delete watchProgress[k]);
+      }
+      localStorage.setItem('cleanhub_progress', JSON.stringify(watchProgress));
+    }
+
+    let lastProgressSave = 0;
+    document.getElementById('video-el').addEventListener('timeupdate', () => {
+      const now = Date.now();
+      if (now - lastProgressSave > 3000) {
+        lastProgressSave = now;
+        saveCurrentProgress();
+      }
+    });
+
+    // 유튜브식 터치 제스처 (좌/우 더블탭 ±10초, 길게 누르기 2배속, 싱글탭 재생/일시정지)
+    (function initPlayerGestures() {
+      const overlay = document.getElementById('gesture-overlay');
+      const video = document.getElementById('video-el');
+      const seekL = document.getElementById('gesture-seek-left');
+      const seekR = document.getElementById('gesture-seek-right');
+      const speedBadge = document.getElementById('gesture-speed-badge');
+
+      let lastTapTime = 0;
+      let lastTapSide = '';
+      let singleTapTimer = null;
+      let longPressTimer = null;
+      let isLongPressing = false;
+      let prevRate = 1;
+      let startX = 0, startY = 0;
+
+      const flashBadge = (el) => {
+        el.classList.remove('hidden');
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.add('hidden'), 650);
+      };
+
+      const onDown = (clientX, clientY) => {
+        startX = clientX;
+        startY = clientY;
+        isLongPressing = false;
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          isLongPressing = true;
+          prevRate = video.playbackRate || 1;
+          video.playbackRate = 2.0;
+          speedBadge.classList.remove('hidden');
+        }, 380);
+      };
+
+      const onUp = (clientX) => {
+        clearTimeout(longPressTimer);
+        if (isLongPressing) {
+          isLongPressing = false;
+          video.playbackRate = prevRate;
+          speedBadge.classList.add('hidden');
+          return;
+        }
+        const rect = overlay.getBoundingClientRect();
+        const side = (clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
+        const now = Date.now();
+
+        if (now - lastTapTime < 280 && lastTapSide === side) {
+          clearTimeout(singleTapTimer);
+          lastTapTime = 0;
+          if (side === 'left') {
+            video.currentTime = Math.max(0, (video.currentTime || 0) - 10);
+            flashBadge(seekL);
+          } else {
+            video.currentTime = Math.min(video.duration || 999999, (video.currentTime || 0) + 10);
+            flashBadge(seekR);
+          }
+        } else {
+          lastTapTime = now;
+          lastTapSide = side;
+          clearTimeout(singleTapTimer);
+          singleTapTimer = setTimeout(() => {
+            if (video.paused) video.play().catch(() => {});
+            else video.pause();
+          }, 260);
+        }
+      };
+
+      const onCancel = () => {
+        clearTimeout(longPressTimer);
+        if (isLongPressing) {
+          isLongPressing = false;
+          video.playbackRate = prevRate;
+          speedBadge.classList.add('hidden');
+        }
+      };
+
+      overlay.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        onDown(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      overlay.addEventListener('touchmove', (e) => {
+        if (Math.abs(e.touches[0].clientX - startX) > 15 || Math.abs(e.touches[0].clientY - startY) > 15) onCancel();
+      }, { passive: true });
+      overlay.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        const touch = e.changedTouches[0];
+        onUp(touch.clientX);
+      });
+      overlay.addEventListener('touchcancel', onCancel);
+
+      overlay.addEventListener('mousedown', (e) => onDown(e.clientX, e.clientY));
+      overlay.addEventListener('mouseup', (e) => onUp(e.clientX));
+      overlay.addEventListener('mouseleave', onCancel);
+    })();
+
     async function openVideo(vkey) {
       if (!workerUrl) { openSettings(); return; }
       stopAllPreviews();
+      saveCurrentProgress();
 
       const modal = document.getElementById('player-modal');
       const pLoading = document.getElementById('player-loading');
@@ -1113,6 +1639,8 @@
       video.removeAttribute('src');
       video.load();
       document.getElementById('speed-select').value = '1';
+      document.getElementById('player-scroll-body').scrollTop = 0;
+      document.getElementById('player-related-wrap').classList.add('hidden');
 
       document.getElementById('player-title').textContent = known ? known.title : '영상 불러오는 중...';
       updatePlayerChannelUI(known ? known.channel : '');
@@ -1140,16 +1668,19 @@
           duration: known ? (known.duration || '') : ''
         };
         addToHistory(currentVideoMeta);
+        pendingResumeApplied = false;
 
         document.getElementById('player-title').textContent = currentVideoMeta.title;
         updatePlayerChannelUI(currentVideoMeta.channel);
         updatePlayerFavButton();
+        updateSubButtons();
 
         const sel = document.getElementById('quality-select');
         sel.innerHTML = currentStreams.map((s, idx) =>
           `<option value="${idx}">${s.quality}p (${s.format.toUpperCase()})</option>`
         ).join('');
 
+        renderPlayerRelated(data.related || []);
         pLoading.classList.add('hidden');
         switchQuality(0);
       } catch (e) {
@@ -1157,6 +1688,26 @@
         showToast(`추출 실패: ${e.message}`);
         closePlayer();
       }
+    }
+
+    function renderPlayerRelated(list) {
+      const wrap = document.getElementById('player-related-wrap');
+      const box = document.getElementById('player-related-list');
+      if (!list || list.length === 0) { wrap.classList.add('hidden'); return; }
+      list.forEach(it => { lastItemsMap[it.vkey] = it; });
+      wrap.classList.remove('hidden');
+      box.innerHTML = list.map(it => `
+        <div onclick="openVideo('${it.vkey}')" class="flex items-center space-x-3 bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800/80 rounded-xl p-2 cursor-pointer active:scale-[0.99] transition">
+          <div class="relative w-28 aspect-video bg-black rounded-lg overflow-hidden shrink-0">
+            <img src="${proxyUrl(it.thumbHd || it.thumb)}" onerror="fallbackThumb(this, '${encodeURIComponent(it.thumb || '')}')" loading="lazy" class="w-full h-full object-cover">
+            ${it.duration ? `<span class="absolute bottom-1 right-1 bg-black/85 text-[9px] font-bold text-white px-1 rounded">${escapeHtml(it.duration)}</span>` : ''}
+          </div>
+          <div class="flex-1 min-w-0 space-y-1">
+            <p class="text-xs font-bold text-zinc-100 line-clamp-2 leading-snug">${escapeHtml(it.title)}</p>
+            ${it.channel ? `<p class="text-[10px] font-bold text-amber-400 truncate">📺 ${escapeHtml(it.channel)}</p>` : ''}
+          </div>
+        </div>
+      `).join('');
     }
 
     function updatePlayerChannelUI(channelName) {
@@ -1170,6 +1721,16 @@
       } else {
         topEl.textContent = 'CleanHub 팝업 플레이어';
         btnEl.classList.add('hidden');
+      }
+    }
+
+    function applyInitialResumeIfAny(video) {
+      if (pendingResumeApplied || !currentVideoMeta) return;
+      pendingResumeApplied = true;
+      const saved = watchProgress[currentVideoMeta.vkey];
+      if (saved && saved.time > 5 && (!saved.duration || saved.time < saved.duration - 10)) {
+        video.currentTime = saved.time;
+        showToast(`⏩ 이어보기: ${formatTime(saved.time)}부터 재생합니다`);
       }
     }
 
@@ -1189,22 +1750,29 @@
           hls.attachMedia(video);
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             if (currentTime > 1) video.currentTime = currentTime;
+            else applyInitialResumeIfAny(video);
             video.play().catch(() => {});
           });
         } else {
           video.src = proxied;
-          video.play().catch(() => {});
+          video.onloadedmetadata = () => {
+            if (currentTime > 1) video.currentTime = currentTime;
+            else applyInitialResumeIfAny(video);
+            video.play().catch(() => {});
+          };
         }
       } else {
         video.src = proxied;
         video.onloadedmetadata = () => {
           if (currentTime > 1) video.currentTime = currentTime;
+          else applyInitialResumeIfAny(video);
           video.play().catch(() => {});
         };
       }
     }
 
     function closePlayer() {
+      saveCurrentProgress();
       const video = document.getElementById('video-el');
       video.pause();
       video.removeAttribute('src');
@@ -1218,10 +1786,7 @@
     function updateGlobalDlBar(title, pct, detail) {
       const barWrap = document.getElementById('global-dl-bar');
       const queueBadge = document.getElementById('global-dl-queue-badge');
-      if (!activeDownloadTask) {
-        barWrap.classList.add('hidden');
-        return;
-      }
+      if (!activeDownloadTask) { barWrap.classList.add('hidden'); return; }
       barWrap.classList.remove('hidden');
       document.getElementById('global-dl-title').textContent = title;
       document.getElementById('global-dl-pct').textContent = `${pct}%`;
@@ -1266,26 +1831,21 @@
       }
 
       const hasMp4Alt = currentStreams.some(s => s.format === 'mp4' && !s.url.includes('.m3u8'));
-      const task = {
+      enqueueHlsDownload(rawTitle, safeTitle, stream.url, hasMp4Alt);
+    }
+
+    function enqueueHlsDownload(title, safeTitle, streamUrl, hasMp4Alt) {
+      downloadQueue.push({
         id: Date.now() + Math.random(),
-        title: rawTitle,
-        safeTitle,
-        streamUrl: stream.url,
-        hasMp4Alt,
+        title, safeTitle, streamUrl, hasMp4Alt,
         controller: new AbortController(),
         cancelled: false
-      };
-
-      downloadQueue.push(task);
+      });
       if (activeDownloadTask) {
-        updateGlobalDlBar(
-          activeDownloadTask.title,
-          activeDownloadTask.pct || 0,
-          activeDownloadTask.detail || '백그라운드 다운로드 진행 중...'
-        );
+        updateGlobalDlBar(activeDownloadTask.title, activeDownloadTask.pct || 0, activeDownloadTask.detail || '백그라운드 다운로드 진행 중...');
         showToast(`대기열에 추가됨 (대기 ${downloadQueue.length}건)`);
       } else {
-        showToast('백그라운드 다운로드 시작! 창을 닫고 다른 영상을 보셔도 됩니다.');
+        showToast('백그라운드 다운로드 시작! 다른 영상을 보셔도 됩니다.');
         processDownloadQueue();
       }
     }
@@ -1298,16 +1858,11 @@
       updateGlobalDlBar(activeDownloadTask.title, 0, activeDownloadTask.detail);
 
       const { signal } = activeDownloadTask.controller;
-
       const toFetchUrl = (rawBase, line) => {
         const trimmed = line.trim();
         if (trimmed.startsWith(workerUrl)) return trimmed;
         if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return proxyUrl(trimmed);
-        try {
-          return proxyUrl(new URL(trimmed, rawBase).href);
-        } catch (_) {
-          return trimmed;
-        }
+        try { return proxyUrl(new URL(trimmed, rawBase).href); } catch (_) { return trimmed; }
       };
 
       const fetchChunkSafe = async (url) => {
@@ -1321,9 +1876,7 @@
           const buf = await res.arrayBuffer();
           if (buf.byteLength === 0) throw new Error('빈 영상 조각 수신');
           const head = new TextDecoder().decode(buf.slice(0, 15)).trim().toLowerCase();
-          if (head.startsWith('<!doctype') || head.startsWith('<html')) {
-            throw new Error('서버 차단으로 오류 페이지 수신됨');
-          }
+          if (head.startsWith('<!doctype') || head.startsWith('<html')) throw new Error('서버 차단으로 오류 페이지 수신됨');
           return buf;
         }
       };
@@ -1350,21 +1903,13 @@
         }
 
         if (/#EXT-X-KEY:[^\n]*METHOD=AES-128/i.test(text)) {
-          throw new Error(
-            activeDownloadTask.hasMp4Alt
-              ? '암호화된 HLS입니다. 화질 목록에서 (MP4)를 선택해 주세요.'
-              : '암호화(AES-128) 영상이라 브라우저 병합을 지원하지 않습니다.'
-          );
+          throw new Error(activeDownloadTask.hasMp4Alt ? '암호화된 HLS입니다. 화질 목록에서 (MP4)를 선택해 주세요.' : '암호화(AES-128) 영상이라 브라우저 병합을 지원하지 않습니다.');
         }
 
         const segs = [];
         let isFmp4 = false;
-
         const mapMatch = text.match(/#EXT-X-MAP:[^\n]*URI="([^"]+)"/i);
-        if (mapMatch && mapMatch[1]) {
-          isFmp4 = true;
-          segs.push(toFetchUrl(rawBaseUrl, mapMatch[1]));
-        }
+        if (mapMatch && mapMatch[1]) { isFmp4 = true; segs.push(toFetchUrl(rawBaseUrl, mapMatch[1])); }
 
         text.split(/\r?\n/).forEach(line => {
           const l = line.trim();
@@ -1404,30 +1949,25 @@
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
         showToast(`✅ 저장 완료: ${activeDownloadTask.safeTitle}.${ext}`);
       } catch (e) {
-        if (e.name !== 'AbortError' && e.message !== 'CANCELLED') {
-          showToast(`다운로드 중단: ${e.message}`);
-        }
+        if (e.name !== 'AbortError' && e.message !== 'CANCELLED') showToast(`다운로드 중단: ${e.message}`);
       } finally {
         activeDownloadTask = null;
-        if (downloadQueue.length > 0) {
-          processDownloadQueue();
-        } else {
-          updateGlobalDlBar('', 0, '');
-        }
+        if (downloadQueue.length > 0) processDownloadQueue();
+        else updateGlobalDlBar('', 0, '');
       }
     }
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !document.getElementById('player-modal').classList.contains('hidden')) {
-        closePlayer();
-      }
+      if (e.key === 'Escape' && !document.getElementById('player-modal').classList.contains('hidden')) closePlayer();
     });
 
     // 초기화
     updateAutoPreviewBtn();
     renderFilterBars();
+    renderQuickSubs();
     updateFavBadge();
-    if (workerUrl) loadList();
+    setupInfiniteScroll();
+    if (workerUrl) loadList(false);
     else document.getElementById('setup-banner').classList.remove('hidden');
   </script>
 </body>
