@@ -35,7 +35,7 @@
       <div onclick="resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
-        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.5</span>
+        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold">v2.6</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <button onclick="toggleAutoPreview()" id="auto-preview-btn" class="text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition">
@@ -73,7 +73,7 @@
         </button>
       </form>
 
-      <!-- 현재 채널 탐색 중 배너 (구독 버튼 포함) -->
+      <!-- 현재 채널 탐색 중 배너 -->
       <div id="active-channel-bar" class="hidden mx-3 bg-amber-500/15 border border-amber-500/40 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2">
         <div class="flex items-center space-x-2 min-w-0">
           <span class="text-sm">📺</span>
@@ -153,13 +153,11 @@
 
     <!-- ==================== 탭 3: 📋 보관함 (구독 채널 + 플레이리스트) ==================== -->
     <section id="view-playlists" class="hidden space-y-4">
-      <!-- 구독한 채널 섹션 -->
       <div class="px-3 space-y-2">
         <h2 class="text-sm font-extrabold text-amber-400">⭐ 구독 중인 채널</h2>
         <div id="subs-list-wrap" class="space-y-2"></div>
       </div>
 
-      <!-- 플레이리스트 북마크 섹션 -->
       <div class="px-3 space-y-2.5 pt-2 border-t border-zinc-800/80">
         <div class="flex items-center justify-between">
           <h2 class="text-sm font-extrabold text-emerald-400">📋 플레이리스트 북마크</h2>
@@ -272,7 +270,6 @@
         <video id="video-el" class="w-full h-full" controls playsinline></video>
         <div id="gesture-overlay" class="absolute top-0 left-0 right-0 bottom-12 z-10"></div>
 
-        <!-- 제스처 피드백 배지 -->
         <div id="gesture-seek-left" class="hidden pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-black/75 text-white text-xs font-black px-3.5 py-2 rounded-full backdrop-blur-sm">⏪ -10초</div>
         <div id="gesture-seek-right" class="hidden pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-black/75 text-white text-xs font-black px-3.5 py-2 rounded-full backdrop-blur-sm">+10초 ⏩</div>
         <div id="gesture-speed-badge" class="hidden pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-20 bg-amber-500 text-black text-[11px] font-black px-3 py-1 rounded-full shadow-lg">⚡ 2.0x 배속 재생 중</div>
@@ -425,6 +422,7 @@
     let shortiesLoading = false;
     let shortiesMuted = true;
     let shortiesObserver = null;
+    let shortiesActiveIdx = -1;
     const shortiesHlsMap = new Map();
     const shortiesSeenIds = new Set();
     let shortiesHasMore = true;
@@ -524,7 +522,7 @@
 
     function copyBackupData() {
       const payload = {
-        version: '2.5',
+        version: '2.6',
         workerUrl,
         favorites,
         savedPlaylists,
@@ -954,7 +952,7 @@
       targets.forEach(t => scrollObserver.observe(t));
     }
 
-    // ==================== 카드 렌더링 (이어보기 진행바 포함) ====================
+    // ==================== 카드 렌더링 ====================
     function isFav(vkey) { return favorites.some(f => f.vkey === vkey); }
 
     function buildVideoCardHtml(item) {
@@ -1147,11 +1145,32 @@
       loadList(false);
     }
 
-    // ==================== ⚡ 쇼츠 (Shorties 세로 피드 · v2.5 중복 차단 + 복구) ====================
+    // ==================== ⚡ 쇼츠 (v2.6 즉시 재생 · 사전 버퍼링 · 인트로 제거) ====================
     function initShortiesTab() {
       if (!workerUrl) { openSettings(); return; }
-      if (shortiesItems.length === 0) loadShorties(false);
-      else observeShortiesSlides();
+      if (shortiesItems.length === 0) {
+        loadShorties(false);
+      } else {
+        observeShortiesSlides();
+        if (shortiesActiveIdx >= 0) syncShortiesWindow(shortiesActiveIdx);
+      }
+    }
+
+    function unloadShortySlide(idx) {
+      const h = shortiesHlsMap.get(idx);
+      if (h) {
+        try { h.destroy(); } catch (_) {}
+        shortiesHlsMap.delete(idx);
+      }
+      const slide = document.querySelector(`#shorties-container .shorty-slide[data-idx="${idx}"]`);
+      if (!slide) return;
+      const video = slide.querySelector('video.shorty-video');
+      if (video && video.dataset.loaded) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.dataset.loaded = '';
+      }
     }
 
     function refreshShorties() {
@@ -1160,6 +1179,7 @@
       shortiesHlsMap.clear();
       shortiesSeenIds.clear();
       shortiesHasMore = true;
+      shortiesActiveIdx = -1;
       loadShorties(false);
     }
 
@@ -1172,6 +1192,7 @@
         shortiesPage = 1;
         shortiesItems = [];
         shortiesHasMore = true;
+        shortiesActiveIdx = -1;
         box.innerHTML = `<div class="h-full flex flex-col items-center justify-center space-y-2 text-zinc-400 text-xs"><div class="w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div><p>⚡ Shorties 피드 불러오는 중...</p></div>`;
       } else {
         shortiesPage += 1;
@@ -1208,8 +1229,7 @@
         observeShortiesSlides();
 
         if (!append) {
-          const firstVid = box.querySelector('.shorty-slide[data-idx="0"] video.shorty-video');
-          if (firstVid && shortiesItems[0]) playShortyVideo(firstVid, shortiesItems[0], 0);
+          syncShortiesWindow(0);
         }
       } catch (e) {
         if (!append) {
@@ -1228,11 +1248,19 @@
             class="shorty-video w-full h-full object-contain bg-black"
             playsinline
             webkit-playsinline
+            preload="auto"
             loop
             ${shortiesMuted ? 'muted' : ''}
             poster="${proxyUrl(item.thumb)}"
             onclick="toggleShortyPlay(this)"
+            onplaying="this.parentElement.querySelector('.shorty-spinner').classList.add('hidden')"
+            onwaiting="this.parentElement.querySelector('.shorty-spinner').classList.remove('hidden')"
           ></video>
+
+          <!-- 로딩 스피너 -->
+          <div class="shorty-spinner pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <div class="w-9 h-9 border-2 border-amber-500 border-t-transparent rounded-full animate-spin bg-black/40"></div>
+          </div>
 
           <!-- 좌측 상단 새로고침 버튼 -->
           <button onclick="refreshShorties()" class="absolute top-3 left-3 z-20 bg-black/60 backdrop-blur border border-white/15 text-zinc-200 text-[11px] font-extrabold px-2.5 py-1.5 rounded-full active:scale-95">
@@ -1282,15 +1310,9 @@
         if (currentTab !== 'shorties') return;
         entries.forEach(entry => {
           const idx = parseInt(entry.target.dataset.idx, 10);
-          const video = entry.target.querySelector('video.shorty-video');
-          const item = shortiesItems[idx];
-          if (!video || !item) return;
-
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-            playShortyVideo(video, item, idx);
-            if (idx >= shortiesItems.length - 2 && shortiesHasMore) loadShorties(true);
-          } else {
-            video.pause();
+            syncShortiesWindow(idx);
+            if (idx >= shortiesItems.length - 3 && shortiesHasMore) loadShorties(true);
           }
         });
       }, { root: container, threshold: [0.6] });
@@ -1298,53 +1320,112 @@
       slides.forEach(s => shortiesObserver.observe(s));
     }
 
-    async function fallbackExtractShorty(video, item, idx) {
+    // 현재 슬라이드 재생 + 다음 슬라이드 사전 버퍼링 + 멀어진 슬라이드 디코더 해제
+    function syncShortiesWindow(activeIdx) {
+      shortiesActiveIdx = activeIdx;
+      const slides = document.querySelectorAll('#shorties-container .shorty-slide');
+      slides.forEach(slide => {
+        const idx = parseInt(slide.dataset.idx, 10);
+        const video = slide.querySelector('video.shorty-video');
+        const item = shortiesItems[idx];
+        if (!video || !item) return;
+
+        if (idx === activeIdx) {
+          loadShortyMedia(video, item, idx, true);
+        } else if (idx === activeIdx + 1) {
+          video.pause();
+          loadShortyMedia(video, item, idx, false);
+        } else if (Math.abs(idx - activeIdx) > 1) {
+          unloadShortySlide(idx);
+        } else {
+          video.pause();
+        }
+      });
+    }
+
+    async function fallbackExtractShorty(video, item, idx, shouldPlay) {
       if (!item.vkey || video.dataset.retried) return;
       video.dataset.retried = '1';
       try {
         const res = await fetch(`${workerUrl}/api/extract?vkey=${encodeURIComponent(item.vkey)}`);
         const data = await res.json();
         if (data.streams && data.streams.length > 0) {
-          const best = data.streams.find(s => s.format === 'mp4') || data.streams[0];
+          const best = data.streams.find(s => s.format === 'mp4' && /^(720|480)$/.test(String(s.quality)))
+            || data.streams.find(s => s.format === 'mp4')
+            || data.streams[0];
           item.videoUrl = best.url;
           item.format = best.format;
+          item.fallbackFull = true;
           video.dataset.loaded = '';
-          playShortyVideo(video, item, idx);
+          loadShortyMedia(video, item, idx, shouldPlay && idx === shortiesActiveIdx);
         }
       } catch (_) {}
     }
 
-    function playShortyVideo(video, item, idx) {
+    function applyShortyStartOffset(video, item) {
+      if (item.startTime > 0 && video.currentTime < item.startTime) {
+        try { video.currentTime = item.startTime; } catch (_) {}
+      } else if (item.fallbackFull && video.duration > 20 && video.currentTime < 6) {
+        try { video.currentTime = Math.min(8, Math.floor(video.duration * 0.15)); } catch (_) {}
+      }
+    }
+
+    function loadShortyMedia(video, item, idx, shouldPlay) {
       video.muted = shortiesMuted;
-      if (!video.dataset.loaded) {
-        video.dataset.loaded = '1';
-        const src = proxyUrl(item.videoUrl);
-        if (shortiesHlsMap.has(idx)) {
-          try { shortiesHlsMap.get(idx).destroy(); } catch (_) {}
-          shortiesHlsMap.delete(idx);
-        }
-        if (item.format === 'hls' || item.videoUrl.includes('.m3u8')) {
-          if (Hls.isSupported()) {
-            const h = new Hls();
-            h.loadSource(src);
-            h.attachMedia(video);
-            h.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-            h.on(Hls.Events.ERROR, (_, data) => {
-              if (data.fatal) fallbackExtractShorty(video, item, idx);
-            });
-            shortiesHlsMap.set(idx, h);
-          } else {
-            video.src = src;
-            video.onerror = () => fallbackExtractShorty(video, item, idx);
-            video.play().catch(() => {});
-          }
-        } else {
-          video.src = src;
-          video.onerror = () => fallbackExtractShorty(video, item, idx);
+      if (video.dataset.loaded) {
+        if (shouldPlay) {
+          applyShortyStartOffset(video, item);
           video.play().catch(() => {});
         }
+        return;
+      }
+
+      video.dataset.loaded = '1';
+      const src = proxyUrl(item.videoUrl, '&shorty=1');
+      if (shortiesHlsMap.has(idx)) {
+        try { shortiesHlsMap.get(idx).destroy(); } catch (_) {}
+        shortiesHlsMap.delete(idx);
+      }
+
+      const tryPlayIfActive = () => {
+        applyShortyStartOffset(video, item);
+        if (idx === shortiesActiveIdx && currentTab === 'shorties') {
+          video.play().catch(() => {});
+        }
+      };
+
+      if (item.format === 'hls' || item.videoUrl.includes('.m3u8')) {
+        if (Hls.isSupported()) {
+          const h = new Hls({
+            maxBufferLength: 6,
+            maxMaxBufferLength: 12,
+            startLevel: 0,
+            capLevelToPlayerSize: true,
+            enableWorker: true
+          });
+          h.loadSource(src);
+          h.attachMedia(video);
+          h.on(Hls.Events.MANIFEST_PARSED, tryPlayIfActive);
+          h.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) fallbackExtractShorty(video, item, idx, shouldPlay);
+          });
+          shortiesHlsMap.set(idx, h);
+        } else {
+          video.src = src;
+          video.onloadedmetadata = tryPlayIfActive;
+          video.onerror = () => fallbackExtractShorty(video, item, idx, shouldPlay);
+          if (shouldPlay) video.play().catch(() => {});
+        }
       } else {
-        video.play().catch(() => {});
+        video.src = src;
+        video.onloadedmetadata = tryPlayIfActive;
+        video.oncanplay = () => {
+          if (idx === shortiesActiveIdx && currentTab === 'shorties' && video.paused) {
+            video.play().catch(() => {});
+          }
+        };
+        video.onerror = () => fallbackExtractShorty(video, item, idx, shouldPlay);
+        if (shouldPlay) video.play().catch(() => {});
       }
     }
 
