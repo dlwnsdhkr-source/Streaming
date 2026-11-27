@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CleanHub v2.8 - 안드로이드 전용 플레이어</title>
+  <title>CleanHub v2.8.1 - 안드로이드 전용 플레이어</title>
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,7 +48,7 @@
       <div onclick="App.Explore.resetHome()" class="flex items-center space-x-2 cursor-pointer shrink-0">
         <span class="bg-amber-500 text-black font-black text-xs px-2 py-1 rounded-md">PLAY</span>
         <h1 class="font-extrabold text-base text-white">CleanHub</h1>
-        <span class="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">v2.8</span>
+        <span class="text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">v2.8.1</span>
       </div>
       <div class="flex items-center space-x-1.5">
         <button onclick="App.UI.toggleAutoPreview()" id="auto-preview-btn" class="text-[11px] bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg font-extrabold active:scale-95 transition">
@@ -469,7 +469,7 @@
     const App = (() => {
       // ==================== 1. Config ====================
       const Config = {
-        VERSION: '2.8',
+        VERSION: '2.8.1',
         PRESET_GENRES: [
           { label: '전체', value: '' },
           { label: '🇰🇷 한국', value: 'korean' },
@@ -1689,18 +1689,30 @@
             if (!data.streams || data.streams.length === 0) throw new Error('재생 가능한 스트림이 없습니다.');
 
             this.streams = data.streams;
+            const resolvedChannel = data.channel || known?.channel || '';
+            const resolvedChannelUrl = data.channel
+              ? (data.channelUrl || (known?.channel === data.channel ? (known.channelUrl || '') : ''))
+              : (known?.channelUrl || '');
+
             this.currentMeta = {
               vkey,
               title: data.title,
               thumb: data.thumb || known?.thumb || '',
               thumbHd: data.thumbHd || known?.thumbHd || known?.thumb || '',
               preview: known?.preview || '',
-              channel: data.channel || known?.channel || '',
-              channelUrl: data.channelUrl || known?.channelUrl || '',
+              channel: resolvedChannel,
+              channelUrl: resolvedChannelUrl,
               duration: known?.duration || ''
             };
             Store.itemsMap[vkey] = this.currentMeta;
             Library.addHistory(this.currentMeta);
+            // 기존 찜 목록에 잘못 저장돼 있던 채널명도 재생 시 자동 교정
+            const favIdx = Store.favorites.findIndex(f => f.vkey === vkey);
+            if (favIdx >= 0 && resolvedChannel && (Store.favorites[favIdx].channel !== resolvedChannel || Store.favorites[favIdx].channelUrl !== resolvedChannelUrl)) {
+              Store.favorites[favIdx].channel = resolvedChannel;
+              Store.favorites[favIdx].channelUrl = resolvedChannelUrl;
+              Store.save('cleanhub_favorites', Store.favorites);
+            }
 
             document.getElementById('player-title').textContent = this.currentMeta.title;
             this.updateChannelUI(this.currentMeta.channel, this.currentMeta.channelUrl);
