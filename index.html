@@ -570,10 +570,18 @@
           return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         },
         fallbackThumb(imgEl, encodedFb) {
-          if (imgEl.dataset.fbDone) return;
-          imgEl.dataset.fbDone = '1';
+          const step = imgEl.dataset.fbStep || '0';
           const fb = decodeURIComponent(encodedFb || '');
-          if (fb) imgEl.src = Api.proxyUrl(fb);
+          if (step === '0' && fb) {
+            const nextSrc = Api.proxyUrl(fb);
+            if (nextSrc && imgEl.src !== nextSrc) {
+              imgEl.dataset.fbStep = '1';
+              imgEl.src = nextSrc;
+              return;
+            }
+          }
+          imgEl.dataset.fbStep = '2';
+          imgEl.classList.add('hidden');
         },
         updateFavBadge() {
           const badge = document.getElementById('fav-badge');
@@ -1732,15 +1740,20 @@
           if (!list.length) { wrap.classList.add('hidden'); return; }
           list.forEach(it => { Store.itemsMap[it.vkey] = it; });
           wrap.classList.remove('hidden');
-          box.innerHTML = list.map(it => `
+          box.innerHTML = list.map(it => {
+            const encFb = encodeURIComponent(it.thumb || '');
+            const primary = it.thumbHd || it.thumb || '';
+            return `
             <div onclick="App.Player.open('${UI.escAttr(it.vkey)}')" class="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition">
-              <div class="relative aspect-video bg-black">
-                <img src="${Api.proxyUrl(it.thumbHd || it.thumb)}" loading="lazy" class="w-full h-full object-cover">
-                ${it.duration ? `<span class="absolute bottom-1 right-1 bg-black/80 text-[10px] font-bold text-white px-1.5 py-0.5 rounded">${UI.esc(it.duration)}</span>` : ''}
+              <div class="relative aspect-video bg-zinc-900 flex items-center justify-center">
+                <span class="text-zinc-700 text-xl pointer-events-none">🎬</span>
+                ${primary ? `<img src="${Api.proxyUrl(primary)}" onerror="App.UI.fallbackThumb(this, '${encFb}')" loading="lazy" class="absolute inset-0 w-full h-full object-cover">` : ''}
+                ${it.duration ? `<span class="absolute bottom-1 right-1 z-10 bg-black/80 text-[10px] font-bold text-white px-1.5 py-0.5 rounded">${UI.esc(it.duration)}</span>` : ''}
               </div>
               <p class="p-2 text-[11px] font-bold text-zinc-200 line-clamp-2 leading-tight">${UI.esc(it.title)}</p>
             </div>
-          `).join('');
+          `;
+          }).join('');
         },
         enqueueDownload() {
           if (!this.streams.length || !this.currentMeta) return;
